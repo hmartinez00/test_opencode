@@ -1,0 +1,1 @@
+Lee el archivo AGENTS.md y apegate a esas instrucciones
