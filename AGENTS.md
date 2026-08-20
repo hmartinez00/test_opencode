@@ -7,7 +7,7 @@ Este archivo define las directrices contextuales, arquitectonicas y las reglas d
 ## 1. Objetivo del Proyecto
 El sistema tiene como objetivo automatizar la generacion modular y progresiva de presentaciones interactivas basadas en **Reveal.js** empaquetadas en plantillas **Blade** compatibles con un framework especifico de Laravel.
 
-La filosofia del proyecto es de **Plan Maestro + Construccion Progresiva por Secciones (Sesiones)**.
+La filosofia del proyecto es de **Plan Maestro + Construccion Progresiva por Sesiones**.
 
 ---
 
@@ -20,9 +20,31 @@ C:\laragon\www\test\test\test_opencode\
 │   ├── presentation_plan_meta_prompt.md
 │   ├── presentation_slide_meta_prompt.md
 │   └── ...
+├── AGENTS.md                       <-- Guia maestra para agentes de IA
+├── README.md                       <-- Documentacion publica del repositorio
+├── SESION_PRA_RESUMEN.md           <-- Documento de contexto de sesion (para reanudar en otra sesion)
+├── pra_helper.py                   <-- Motor de automatizacion (punto unico de escritura de archivos)
 ├── pra_workflow_state.md           <-- Registro del estado y propuesta de arquitectura del proyecto
-├── pra_helper.py                  <-- Script de Python (Soporte) que controla de forma determinista la creacion de archivos
-└── [nombre_proyecto_snake_case]/  <-- Directorio generado del proyecto activo
+├── specs/
+│   └── 001-sistema-automatizacion-presentaciones-pra/
+│       ├── spec.md                 <-- Especificacion funcional
+│       ├── plan.md                 <-- Contexto tecnico y arquitectura de codigo
+│       ├── research.md             <-- Research de tecnologias
+│       ├── data-model.md           <-- Modelo de datos y esquemas JSON
+│       ├── quickstart.md           <-- Guia de validacion end-to-end
+│       ├── tasks.md                <-- Lista de tareas en 7 fases
+│       ├── contracts/
+│       │   └── cli-contract.md     <-- Especificacion detallada de comandos CLI
+│       └── checklists/
+│           └── requirements.md     <-- Checklist de requerimientos
+├── .specify/
+│   └── memory/
+│       └── constitution.md         <-- Constitucion del proyecto (5 principios no negociables)
+├── ejemplos/
+│   └── introduccion_docker/
+│       └── documento_fuente.md     <-- Documento fuente de prueba para validar el flujo completo
+└── [nombre_proyecto_snake_case]/   <-- Directorio generado del proyecto activo
+    ├── presentation_plan.json      <-- Plan maestro normalizado
     ├── class_registry.json         <-- Registro vivo de clases CSS implementadas
     ├── js_registry.json            <-- Registro vivo de comportamientos JavaScript implementados
     ├── manifest_draft.blade.php    <-- Estructura de integracion Laravel inicial
@@ -62,18 +84,18 @@ Cuando el usuario solicite acciones sobre el flujo PRA, el agente que intervenga
 
 ### Fase de Inicializacion (`@pra iniciar`):
 1. Leer el documento fuente proporcionado por el usuario.
-2. Invocar `pra_helper.py --init` para armar el prompt de generacion del Plan Maestro.
-3. Solicitar la generacion al LLM interno y procesar la salida (el JSON de plan y registros iniciales) con `pra_helper.py --save-plan`.
+2. Invocar `python pra_helper.py init <documento>` para armar el prompt de generacion del Plan Maestro.
+3. Solicitar la generacion al LLM interno y procesar la salida (el JSON de plan y registros iniciales) con `python pra_helper.py save-plan '<json>'`.
 
 ### Fase de Construccion de Sesion (`@pra construir sesion <N>`):
 1. Consultar `class_registry.json` y `js_registry.json` vigentes.
-2. Ejecutar `pra_helper.py --prompt-session <N>` para compilar el prompt adaptado.
+2. Ejecutar `python pra_helper.py prompt-session <N>` para compilar el prompt adaptado.
 3. Enviar el prompt compilado al LLM de OpenCode.
-4. Tomar la respuesta completa del LLM y pasarla a `pra_helper.py --process-session <N>`.
+4. Tomar la respuesta completa del LLM y pasarla a `python pra_helper.py process-session <N> '<respuesta_llm>'`.
 5. Confirmar al usuario los archivos Blade creados y los nuevos estilos/scripts agregados.
 
 ### Fase de Cierre (`@pra empaquetar`):
-1. Invocar `pra_helper.py --zip` para comprimir el proyecto y dejarlo listo para su descarga e integracion en Laravel.
+1. Invocar `python pra_helper.py zip` para comprimir el proyecto y dejarlo listo para su descarga e integracion en Laravel.
 
 ---
 
@@ -84,6 +106,9 @@ Las plantillas maestras de prompts se encuentran en la carpeta `research_prompts
 * `presentation_plan_meta_prompt.md`: Genera el plan maestro con estructura JSON, clases CSS iniciales y comportamientos JS.
 * `presentation_slide_meta_prompt.md`: Genera laminas Blade, estilos, scripts y actualizaciones de registros para sesiones individuales.
 
+### Nota sobre Normalizacion de Campos JSON
+El script `pra_helper.py` normaliza automaticamente los campos del plan maestro al guardar. Esto significa que puede recibir plan JSON con los nombres de campo de las plantillas maestras (`nro`, `folder_name`, `titulo_sesion`, `objetivos`, `id`) o con los nombres del data-model (`numero`, `carpeta_snake_case`, `titulo`, `objetivo_pedagogico`, `id_kebab_case`). En ambos casos el resultado sera el mismo.
+
 ---
 
 ## 6. Notas para Speckit
@@ -91,3 +116,12 @@ Las plantillas maestras de prompts se encuentran en la carpeta `research_prompts
 * Speckit puede operar en este entorno como agente de validacion y ejecucion de tareas.
 * El script `pra_helper.py` debe ser el unico punto de escritura de archivos del proyecto generado.
 * Cualquier cambio estructural en los registros o plantillas debe validarse antes de proceder a la siguiente sesion.
+* Las especificaciones completas del sistema se encuentran en `specs/001-sistema-automatizacion-presentaciones-pra/`.
+
+---
+
+## 7. Documentos de Referencia Rapida
+
+* `README.md`: Documentacion publica del repositorio con guia de uso y esquemas JSON.
+* `SESION_PRA_RESUMEN.md`: Documento de contexto completo para reanudar cualquier sesion de desarrollo.
+* `ejemplos/introduccion_docker/documento_fuente.md`: Documento fuente de prueba para validar el flujo completo.
