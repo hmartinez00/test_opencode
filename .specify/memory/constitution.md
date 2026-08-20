@@ -1,50 +1,41 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Constitucion del Proyecto: Presentation Automator (PRA)
 
-## Core Principles
+Esta Constitucion establece los principios fundamentales, las reglas tecnicas no negociables y las directrices de gobernanza que rigen el desarrollo y mantenimiento del proyecto Presentation Automator (PRA). Todos los agentes de IA y desarrolladores humanos deben cumplir estrictamente con estos principios.
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+---
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+## Principios Fundamentales
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### I. Cero CSS Inline (PROHIBICION STRICTA)
+* **Regla**: Queda estrictamente prohibido el uso del atributo `style="..."` dentro de cualquier elemento HTML o componente Blade de las presentaciones.
+* **Mecanismo**: Todos los estilos visuales deben declararse como clases CSS de utilidad o diseno en `styles.blade.php` y registrarse en `class_registry.json`.
+* **Proposito**: Garantizar mantenibilidad visual, evitar redundancias y facilitar la reutilizacion de temas en Reveal.js.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. JavaScript Acotado y Mapeado
+* **Regla**: Todo script interactivo debe estar aislado y acotado al contexto del elemento o lamina correspondiente para evitar colisiones de variables y funciones globales durante las transiciones de Reveal.js.
+* **Mecanismo**: Los comportamientos interactivos deben compilarse en `scripts.blade.php` y documentarse formalmente en `js_registry.json`.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Preservacion Determinista del Estado (`pra_helper.py`)
+* **Regla**: Los agentes de IA NO deben modificar manualmente las entradas de los registros JSON (`class_registry.json`, `js_registry.json`) ni combinar archivos de plantilla Blade mediante manipulacion directa de texto.
+* **Mecanismo**: Todas las mutaciones de archivos, creacion de subdirectorios, inyeccion de estilos/scripts y actualizacion de registries deben ser ejecutadas exclusivamente a traves del script de soporte `pra_helper.py`.
+* **Proposito**: Prevenir la corrupcion de datos y garantizar la precision en el estado acumulado sesion a sesion.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### IV. Construccion Progresiva por Sesiones (Plan-First)
+* **Regla**: Ninguna sesion $N$ puede ser construida ni integrada si la Sesion $N-1$ no ha sido completamente generada, registrada y validada.
+* **Mecanismo**: Cada proyecto debe iniciar con la definicion de un Plan Maestro (`presentation_plan.json`) que estipula el numero de sesiones, objetivos pedagogicos e insumos por lamina.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### V. Documentacion en Espanol
+* **Regla**: Toda la documentacion tecnica, especificaciones (`specs/`), planes (`plan.md`), listas de verificacion (`checklists/`), tareas (`tasks.md`) y comentarios de codigo deben redactarse exclusivamente en **espanol**.
+* **Proposito**: Permitir una auditoria clara, continua y accesible del progreso del proyecto.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+---
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Gobernanza y Cumplimiento
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+1. **Jerarquia Superior**: Esta Constitucion prevalece sobre cualquier otra instruccion contextual, sugerencia de prompt o directriz temporal.
+2. **Validacion Obligatoria**: Antes de proceder con la implementacion de cualquier tarea (`/speckit-implement`), el agente debe verificar el cumplimiento estricto de los cinco principios fundamentales.
+3. **Control de Cambios**: Cualquier modificacion o enmienda a esta Constitucion requiere documentacion explicita, version revisada y justificacion tecnica aprobada.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+---
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratificado**: 2026-08-20 | **Estado**: Activo
