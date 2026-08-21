@@ -19,19 +19,33 @@ test_opencode/
 │   └── presentation_slide_meta_prompt.md
 ├── AGENTS.md                       # Directrices para agentes de IA
 ├── pra_helper.py                   # Motor de automatización (CLI)
+├── pytest.ini                      # Configuración del marco de pruebas
+├── tests/                          # Suite de pruebas automatizadas (pytest)
+│   ├── conftest.py                 # Fixtures compartidas (aislamiento, mocks LLM)
+│   ├── unit/                       # Pruebas unitarias del motor
+│   ├── integration/                # Pruebas de integración CLI
+│   └── constitutional/             # Pruebas de reglas constitucionales
 ├── SESION_PRA_RESUMEN.md           # Documento de contexto de sesión
 ├── specs/                          # Especificaciones y documentación
-│   └── 001-sistema-automatizacion-presentaciones-pra/
-│       ├── spec.md                 # Especificación funcional
-│       ├── plan.md                 # Contexto técnico
-│       ├── research.md             # Research de tecnologías
-│       ├── data-model.md           # Modelo de datos y esquemas JSON
-│       ├── quickstart.md           # Guía de validación E2E
-│       ├── tasks.md                # 19 tareas en 7 fases
-│       ├── contracts/
-│       │   └── cli-contract.md     # Especificación CLI de pra_helper.py
-│       └── checklists/
-│           └── requirements.md     # Checklist de requerimientos
+│   ├── 001-sistema-automatizacion-presentaciones-pra/
+│   │   ├── spec.md                 # Especificación funcional
+│   │   ├── plan.md                 # Contexto técnico
+│   │   ├── research.md             # Research de tecnologías
+│   │   ├── data-model.md           # Modelo de datos y esquemas JSON
+│   │   ├── quickstart.md           # Guía de validación E2E
+│   │   ├── tasks.md                # 19 tareas en 7 fases
+│   │   ├── contracts/
+│   │   │   └── cli-contract.md     # Especificación CLI de pra_helper.py
+│   │   └── checklists/
+│   │       └── requirements.md     # Checklist de requerimientos
+│   └── 002-sistema-testing-pra/
+│       ├── spec.md                 # Especificación del sistema de testing
+│       ├── plan.md                 # Plan técnico del marco de pruebas
+│       ├── research.md             # Decisiones de testing
+│       ├── quickstart.md           # Guía de ejecución de la suite
+│       ├── tasks.md                # 14 tareas en 5 fases + defectos corregidos
+│       └── contracts/
+│           └── test-runner-contract.md  # Contrato del ejecutor de pruebas
 └── .specify/
     └── memory/
         └── constitution.md         # Constitución del proyecto
@@ -65,7 +79,31 @@ cd test_opencode
 # Verificar entorno
 python --version
 python pra_helper.py --help
+
+# Instalar dependencias de desarrollo (testing)
+python -m pip install pytest pytest-cov
 ```
+
+## Testing y Calidad
+
+El proyecto cuenta con una suite de pruebas automatizadas basada en **pytest** (30 pruebas, cobertura de `pra_helper.py` ≥ 85%):
+
+```bash
+# Suite completa
+pytest
+
+# Suite con reporte de cobertura
+pytest --cov=pra_helper --cov-report=term-missing
+
+# Por categorías
+pytest tests/unit/            # Pruebas unitarias del motor
+pytest tests/integration/     # Pruebas de integración CLI
+pytest tests/constitutional/  # Pruebas de reglas constitucionales
+```
+
+Las pruebas se ejecutan en directorios temporales aislados (`tmp_path`) y no modifican el workspace. Ver `specs/002-sistema-testing-pra/quickstart.md` para la guía completa.
+
+**Regla obligatoria**: Toda modificación a `pra_helper.py` debe mantener la suite en verde (`30 passed`) antes de considerarse completada.
 
 ## Uso
 
@@ -238,7 +276,8 @@ El LLM debe generar una respuesta con 5 bloques delimitados:
 
 - **AGENTS.md**: Directrices contextuales para agentes de IA
 - **SESION_PRA_RESUMEN.md**: Documento de contexto completo de la sesión de desarrollo
-- **specs/**: Especificaciones detalladas del sistema
+- **specs/001-sistema-automatizacion-presentaciones-pra/**: Especificación del motor PRA
+- **specs/002-sistema-testing-pra/**: Especificación del sistema de testing y calidad
 
 ## Licencia
 

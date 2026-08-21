@@ -1,2 +1,8 @@
 research_prompts_templates/
 backup/
+
+# Artefactos de testing (pytest)
+__pycache__/
+.pytest_cache/
+.coverage
+outputs.zip

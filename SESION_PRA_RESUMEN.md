@@ -44,6 +44,23 @@ Se implementó el script completo `pra_helper.py` (718 líneas) con los 5 comand
 | `process-session <N> <r>` | Procesa respuesta LLM, escribe Blade, acumula CSS/JS | `53d235f` |
 | `zip` | Empaqueta proyecto en `outputs.zip` | `53d235f` |
 
+### 4. Sistema de Testing (ITERACIÓN 002 - 2026-08-21)
+
+Se implementó la iteración Speckit completa `002-sistema-testing-pra` (spec → plan → tasks → implementación):
+
+**Suite de pruebas: 30 pruebas aprobadas, cobertura 88% (mínimo requerido: 85%)**
+
+| Categoría | Archivo | Pruebas |
+|-----------|---------|---------|
+| Unitarias | `tests/unit/test_normalize_plan.py`, `test_validators.py`, `test_parsers.py`, `test_registries.py` | 12 |
+| Integración CLI | `tests/integration/test_cli_init.py`, `test_cli_save_plan.py`, `test_cli_session.py`, `test_cli_zip.py` | 13 |
+| Constitucionales | `tests/constitutional/test_constitution_rules.py` | 5 |
+
+**Defectos reales detectados y corregidos en `pra_helper.py`:**
+1. **D001**: Regex del manifest en `parse_llm_response()` no capturaba `data-title`.
+2. **D002**: `cmd_process_session` NO validaba secuencialidad de sesiones (violación silenciosa de la Constitución IV). Se replicó la validación existente en `cmd_prompt_session`.
+3. **D003**: `normalize_plan()` descartaba `clases_css_requeridas`/`comportamientos_js_requeridos` (registros quedaban vacíos) y `cmd_process_session` agregaba entradas duplicadas; ahora preserva los campos y usa `merge_registry()`.
+
 ---
 
 ## Estructura de Archivos del Proyecto
@@ -54,19 +71,28 @@ C:\laragon\www\test\test\test_opencode\
 │   ├── presentation_plan_meta_prompt.md
 │   └── presentation_slide_meta_prompt.md
 ├── AGENTS.md                          # Directrices para agentes IA
-├── pra_helper.py                      # Motor de automatización (718 líneas)
+├── pra_helper.py                      # Motor de automatización (718+ líneas)
+├── pytest.ini                         # Configuración de la suite pytest
+├── tests/                             # Suite automatizada (iteración 002)
+│   ├── conftest.py                    # Fixtures: aislamiento tmp_path, run_cli, mocks LLM
+│   ├── unit/                          # 12 pruebas unitarias
+│   ├── integration/                   # 13 pruebas de integración CLI
+│   └── constitutional/                # 5 pruebas constitucionales
 ├── specs/
-│   └── 001-sistema-automatizacion-presentations-pra/
-│       ├── spec.md                    # Especificación funcional
-│       ├── plan.md                    # Contexto técnico
-│       ├── research.md                # Research de tecnologías
-│       ├── data-model.md              # Modelo de datos y esquemas JSON
-│       ├── quickstart.md              # Guía de validación E2E
-│       ├── tasks.md                   # 19 tareas en 7 fases
-│       ├── contracts/
-│       │   └── cli-contract.md        # Especificación CLI de pra_helper.py
-│       └── checklists/
-│           └── requirements.md        # Checklist de requerimientos
+│   ├── 001-sistema-automatizacion-presentations-pra/
+│   │   ├── spec.md                    # Especificación funcional
+│   │   ├── plan.md                    # Contexto técnico
+│   │   ├── research.md                # Research de tecnologías
+│   │   ├── data-model.md              # Modelo de datos y esquemas JSON
+│   │   ├── quickstart.md              # Guía de validación E2E
+│   │   ├── tasks.md                   # 19 tareas en 7 fases
+│   │   ├── contracts/
+│   │   │   └── cli-contract.md        # Especificación CLI de pra_helper.py
+│   │   └── checklists/
+│   │       └── requirements.md        # Checklist de requerimientos
+│   └── 002-sistema-testing-pra/       # Especificación del sistema de testing
+│       ├── spec.md / plan.md / research.md / quickstart.md / tasks.md
+│       └── contracts/test-runner-contract.md
 └── .specify/
     └── memory/
         └── constitution.md            # Constitución del proyecto
@@ -248,6 +274,11 @@ El LLM debe generar 5 bloques delimitados:
 python --version
 python pra_helper.py --help
 
+# EJECUTAR LA SUITE DE PRUEBAS (obligatorio tras cambios en pra_helper.py)
+python -m pip install pytest pytest-cov   # solo la primera vez
+pytest --cov=pra_helper --cov-report=term-missing
+# Esperado: 30 passed, cobertura >= 85% (linea base: 88%), ~27s
+
 # Verificar estructura creada por save-plan
 ls -la [carpeta_proyecto]/
 cat [carpeta_proyecto]/presentation_plan.json
@@ -294,9 +325,9 @@ ls -la outputs.zip
 ## Cómo Continuar
 
 1. **Para usar el sistema:** Seguir el flujo descrito arriba con un documento real
-2. **Para modificar pra_helper.py:** Editar directamente el archivo (718 líneas, bien estructurado)
-3. **Para agregar nuevas validaciones:** Agregar función en la sección "Validaciones" del script
-4. **Para cambiar esquemas JSON:** Modificar `normalize_plan()` en pra_helper.py y actualizar `data-model.md`
+2. **Para modificar pra_helper.py:** Editar directamente el archivo y EJECUTAR la suite pytest antes de cerrar (ver `specs/002-sistema-testing-pra/quickstart.md`)
+3. **Para agregar nuevas validaciones:** Agregar función en la sección "Validaciones" del script + pruebas correspondientes
+4. **Para cambiar esquemas JSON:** Modificar `normalize_plan()` en pra_helper.py, actualizar `data-model.md` y ajustar las pruebas unitarias de `tests/unit/test_normalize_plan.py`
 
 ---
 
@@ -304,7 +335,10 @@ ls -la outputs.zip
 
 - **NO tocar `pra_helper.py` sin entender el contrato CLI completo** (ver `contracts/cli-contract.md`)
 - **El script es el ÚNICO punto de escritura** de archivos del proyecto generado
+- **TODA modificación a `pra_helper.py` exige suite verde** (30 passed, cobertura >= 85%)
 - **Las plantillas maestras están en** `research_prompts_templates/` (junction)
 - **La constitución está en** `.specify/memory/constitution.md`
 - **Los esquemas JSON están en** `specs/001-sistema-automatizacion-presentaciones-pra/data-model.md`
 - **El contrato CLI está en** `specs/001-sistema-automatizacion-presentaciones-pra/contracts/cli-contract.md`
+- **El contrato del ejecutor de pruebas está en** `specs/002-sistema-testing-pra/contracts/test-runner-contract.md`
+- **Los tests usan fixtures aisladas (`tmp_path`) y nunca escriben en el workspace real**; `run_cli` en `conftest.py` invoca `main()` con argv simulado

@@ -150,6 +150,10 @@ def normalize_plan(plan):
                 "objetivo": lamina.get("objetivo") or lamina.get("objetivo_pedagogico", ""),
                 "insumos": lamina.get("insumos", []),
             }
+            if "clases_css_requeridas" in lamina:
+                l["clases_css_requeridas"] = lamina["clases_css_requeridas"]
+            if "comportamientos_js_requeridos" in lamina:
+                l["comportamientos_js_requeridos"] = lamina["comportamientos_js_requeridos"]
             s["laminas"].append(l)
         normalized["sesiones"].append(s)
     return normalized
@@ -428,7 +432,7 @@ def parse_llm_response(response_text):
     if js_match:
         blocks["scripts_js"] = js_match.group(1).strip()
 
-    manifest_pattern = re.compile(r"<x-slide\s+[^>]*view=\"([^\"]+)\"[^>]*(?:data-title=\"([^\"]+)\")?[^>]*/>")
+    manifest_pattern = re.compile(r'<x-slide\s+[^>]*view="([^"]+)"(?:[^>]*?data-title="([^"]+)")?[^>]*/>')
     for m in manifest_pattern.finditer(response_text):
         view = m.group(1)
         data_title = m.group(2) or ""
@@ -476,6 +480,18 @@ def cmd_process_session(args):
     if not sesion:
         print(json.dumps({"error": f"Sesion {n} no encontrada en el plan"}))
         sys.exit(1)
+
+    if n > 1:
+        prev_exists = any(s.get("numero") == n - 1 for s in plan.get("sesiones", []))
+        prev_dir = project_dir / f"sesion{n-1}"
+        if prev_exists and not prev_dir.exists():
+            print(json.dumps({"error": f"Sesion {n-1} no completada (directorio no existe)"}))
+            sys.exit(2)
+        if prev_dir.exists():
+            blade_files = list(prev_dir.glob("*.blade.php"))
+            if not blade_files:
+                print(json.dumps({"error": f"Sesion {n-1} no completada (sin laminas Blade generadas)"}))
+                sys.exit(2)
 
     blocks = parse_llm_response(response_text)
 
@@ -539,8 +555,8 @@ def cmd_process_session(args):
         sys.exit(3)
 
     reg_updates = blocks.get("registry_updates", {})
-    added_classes = []
 
+    clases_candidatas = []
     for nueva in reg_updates.get("nuevas_clases", []):
         entry = {
             "nombre": nueva.get("nombre", ""),
@@ -549,8 +565,8 @@ def cmd_process_session(args):
             "sesion_creacion": n,
         }
         if entry["nombre"]:
-            class_registry["clases"].append(entry)
-            added_classes.append(entry["nombre"])
+            clases_candidatas.append(entry)
+    added_classes = merge_registry(class_registry["clases"], clases_candidatas)
 
     for mat_name in reg_updates.get("clases_materializadas", []):
         for clase in class_registry["clases"]:
@@ -558,7 +574,7 @@ def cmd_process_session(args):
                 clase["implementada"] = True
                 break
 
-    added_js = []
+    js_candidatos = []
     for nuevo in reg_updates.get("nuevos_comportamientos", []):
         entry = {
             "nombre": nuevo.get("nombre", ""),
@@ -567,8 +583,8 @@ def cmd_process_session(args):
             "sesion_creacion": n,
         }
         if entry["nombre"]:
-            js_registry["comportamientos"].append(entry)
-            added_js.append(entry["nombre"])
+            js_candidatos.append(entry)
+    added_js = merge_registry(js_registry["comportamientos"], js_candidatos)
 
     for mat_name in reg_updates.get("comportamientos_materializados", []):
         for comp in js_registry["comportamientos"]:

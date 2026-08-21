@@ -25,6 +25,12 @@ C:\laragon\www\test\test\test_opencode\
 ├── SESION_PRA_RESUMEN.md           <-- Documento de contexto de sesion (para reanudar en otra sesion)
 ├── pra_helper.py                   <-- Motor de automatizacion (punto unico de escritura de archivos)
 ├── pra_workflow_state.md           <-- Registro del estado y propuesta de arquitectura del proyecto
+├── pytest.ini                      <-- Configuracion del marco de pruebas pytest
+├── tests/                          <-- Suite de pruebas automatizadas (iteracion 002)
+│   ├── conftest.py                 <-- Fixtures compartidas (aislamiento tmp_path, mocks LLM)
+│   ├── unit/                       <-- Pruebas unitarias de funciones del motor
+│   ├── integration/                <-- Pruebas de integracion de comandos CLI
+│   └── constitutional/             <-- Pruebas de reglas constitucionales
 ├── specs/
 │   └── 001-sistema-automatizacion-presentaciones-pra/
 │       ├── spec.md                 <-- Especificacion funcional
@@ -76,6 +82,11 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
 * **No escribir directamente en registries ni combinar archivos Blade manualmente:** Los agentes deben invocar siempre el script `pra_helper.py` con los argumentos apropiados para delegar la creacion y actualizacion del proyecto. Esto asegura que la logica regex y de fusion de JSONs sea 100% precisa y determinista.
 * **Respetar el orden secuencial:** No se puede construir la Sesion $N$ si la Sesion $N-1$ no ha sido completada y sus cambios integrados con exito.
 
+### Garantia de Calidad (Suite de Pruebas):
+* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` DEBE mantener la suite `pytest` en verde (30 pruebas aprobadas) antes de dar por terminada la tarea. Ejecutar: `pytest --cov=pra_helper --cov-report=term-missing`.
+* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` no debe descender del 85%.
+* **Nuevas funcionalidades requieren nuevas pruebas:** Todo cambio o feature en el motor debe incluir pruebas unitarias, de integracion o constitucionales segun corresponda, siguiendo la especificacion de `specs/002-sistema-testing-pra/`.
+
 ---
 
 ## 4. Flujo de Trabajo del Agente
@@ -97,6 +108,11 @@ Cuando el usuario solicite acciones sobre el flujo PRA, el agente que intervenga
 ### Fase de Cierre (`@pra empaquetar`):
 1. Invocar `python pra_helper.py zip` para comprimir el proyecto y dejarlo listo para su descarga e integracion en Laravel.
 
+### Fase de Verificacion (obligatoria tras cualquier cambio en el motor):
+1. Ejecutar la suite completa: `pytest --cov=pra_helper --cov-report=term-missing`.
+2. Verificar que las 30 pruebas pasen y que la cobertura de `pra_helper.py` sea >= 85%.
+3. Si se agregaron funcionalidades nuevas, incorporar las pruebas correspondientes antes de cerrar la tarea.
+
 ---
 
 ## 5. Plantillas de Prompts
@@ -117,6 +133,7 @@ El script `pra_helper.py` normaliza automaticamente los campos del plan maestro 
 * El script `pra_helper.py` debe ser el unico punto de escritura de archivos del proyecto generado.
 * Cualquier cambio estructural en los registros o plantillas debe validarse antes de proceder a la siguiente sesion.
 * Las especificaciones completas del sistema se encuentran en `specs/001-sistema-automatizacion-presentaciones-pra/`.
+* La especificacion del sistema de testing y su guia de ejecucion se encuentran en `specs/002-sistema-testing-pra/`.
 
 ---
 
@@ -125,3 +142,4 @@ El script `pra_helper.py` normaliza automaticamente los campos del plan maestro 
 * `README.md`: Documentacion publica del repositorio con guia de uso y esquemas JSON.
 * `SESION_PRA_RESUMEN.md`: Documento de contexto completo para reanudar cualquier sesion de desarrollo.
 * `ejemplos/introduccion_docker/documento_fuente.md`: Documento fuente de prueba para validar el flujo completo.
+* `specs/002-sistema-testing-pra/quickstart.md`: Guia rapida para ejecutar la suite de pruebas automatizadas.

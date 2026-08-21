@@ -13,7 +13,7 @@ Sistema automatizado para la construccion modular y progresiva de presentaciones
 **Lenguaje/Version**: Python 3.11+
 **Dependencias Principales**: Python stdlib (`json`, `argparse`, `re`, `os`, `pathlib`, `zipfile`), LLM de OpenCode (generacion de contenido)
 **Almacenamiento**: Archivos JSON locales (`class_registry.json`, `js_registry.json`, `presentation_plan.json`), archivos Blade (`.blade.php`), Markdown
-**Testing**: pytest
+**Testing**: pytest (IMPLEMENTADO en la iteracion `002-sistema-testing-pra`: 30 pruebas, cobertura 88%. Ver `specs/002-sistema-testing-pra/` y `tests/`)
 **Plataforma Objetivo**: Windows 10+ (Laragon, entorno de desarrollo local)
 **Tipo de Proyecto**: CLI / Herramienta de automatizacion de codigo
 **Objetivos de Rendimiento**: Procesamiento por sesion < 2 minutos en CLI interactiva
