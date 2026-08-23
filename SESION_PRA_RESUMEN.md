@@ -3,7 +3,7 @@
 > **Fecha:** 2026-08-22  
 > **Modelo:** opencode/big-pickle  
 > **Rama:** `main`  
-> **Último commit:** `c915ff8` (los cambios de esta iteración están SIN commitear)
+> **Último commit:** `3731485` (iteración 003 COMMITEADA y pusheada a `origin/main`)
 
 ---
 
@@ -12,6 +12,30 @@
 Sistema **Presentation Automator (PRA v1.0)**: automatizar la generación modular y progresiva de presentaciones **Reveal.js** empaquetadas en plantillas **Blade** para Laravel, usando la metodología Speckit.
 
 **Filosofía:** Plan Maestro → Construcción Progresiva por Sesiones → Empaquetado final.
+
+---
+
+## Última Compactación (2026-08-22): Commits + Primera Corrida E2E Mock EXITOSA + Pre-vuelo Opción B
+
+### 1. Commits y push realizados
+- `e260836`: Iteración 003 completa (`pra_orchestrator.py`, `specs/003-*`, `mocks_llm/`, `tests/conftest.py`, 7 tests nuevos) — 20 archivos, +2622 líneas.
+- `3731485`: Limpieza de rutas hardcodeadas muertas (`C:\laragon\www\test\test\test_opencode\` eliminadas de `pra_helper.py` en `cmd_init`/`cmd_prompt_session`, `AGENTS.md`, este documento y specs/001+002) y documentación del junction restaurado.
+- Ambos PUSHEADOS a `origin/main` (`c915ff8..3731485`). El código queda limpio; solo quedan artefactos generados sin trackear (ver abajo).
+
+### 2. Primera corrida E2E desatendida REAL: ÉXITO TOTAL (valida T322)
+Comando: `python pra_orchestrator.py run ejemplos/introduccion_docker/documento_fuente.md --backend mock`
+- **exit 0 en ~23 s**, las 6 fases completadas al PRIMER intento (intentos=1 en todo el estado): init → save-plan → sesion 1 → sesion 2 → pytest (95 passed, cobertura 88.0%) → zip.
+- Puertas constitucionales verdes: `sin_css_inline=true` y `laminas_faltantes=[]` en ambas sesiones; verificación independiente con grep confirmó cero `style="..."` en todo `intro_docker/`.
+- Artefactos generados EN el workspace (aún presentes):
+  - `intro_docker/` (**sin trackear**): `presentation_plan.json` normalizado (2 sesiones, 3 láminas), `class_registry.json` (4 clases; ojo: `text-center` queda `implementada=false` por diseño de la fixture), `js_registry.json` (ripple-effect), `manifest_draft.blade.php`, `styles/scripts.blade.php` acumulados, `sesion1/{que-es-docker,arquitectura}.blade.php`, `sesion2/comandos-basicos.blade.php`, carpetas `*_additions/`.
+  - `outputs.zip` (15 archivos; **ignorado** por `.gitignore`).
+  - `orchestration_state.json` y `orchestration_log.txt` (**sin trackear**): todas las fases `completada`.
+- Conclusión: la maquinaria de orquestación funciona de punta a punta con backend mock.
+
+### 3. Pre-vuelo Opción B (backend opencode REAL) — PENDIENTE de ejecutar
+- CLI disponible: `opencode v1.18.21`; el orquestador invoca subprocess `["opencode", "run", "<prompt>"]`, timeout default 300 s (usar `--timeout-s 600` según quickstart de spec 003). El `OpenCodeBackend` NUNCA ha corrido E2E: sería su estreno real.
+- ANTES de lanzar: archivar los artefactos de la corrida mock (propuesto: carpeta `backup_mock_corrida1/`) porque NO hay aislamiento entre corridas en el mismo workspace — `run` sobrescribe `orchestration_state.json` y los artefactos previos se mezclarían con los de la corrida real.
+- Comando planeado: `python pra_orchestrator.py run ejemplos/introduccion_docker/documento_fuente.md --backend opencode --timeout-s 600 --max-retries 3`. Si una fase falla: `resume` retoma desde la última fase válida.
 
 ---
 
@@ -81,8 +105,8 @@ C:\laragon\www\test_opencode\
 ├── README.md                          # Documentación pública (actualizada iteración 003)
 ├── SESION_PRA_RESUMEN.md              # Este documento
 ├── pra_helper.py                      # Motor de automatización (único escritor de artefactos del proyecto)
-├── pra_orchestrator.py                # Orquestador automático (792 líneas, iteración 003) — SIN COMMITEAR
-├── mocks_llm/                         # Fixtures deterministas del MockBackend — SIN COMMITEAR
+├── pra_orchestrator.py                # Orquestador automático (792 líneas, iteración 003)
+├── mocks_llm/                         # Fixtures deterministas del MockBackend
 │   ├── plan.txt / sesion1.txt / sesion2.txt
 ├── pytest.ini                         # testpaths=tests, pythonpath=.
 ├── tests/                             # Suite: 95 pruebas, cobertura 88%/88%
@@ -99,10 +123,14 @@ C:\laragon\www\test_opencode\
 │       ├── contracts/orchestrator-contract.md
 │       └── checklists/requirements.md
 ├── ejemplos/introduccion_docker/documento_fuente.md      # Documento de prueba E2E real
+├── intro_docker/                        # GENERADO: proyecto de la corrida mock E2E (sin trackear)
+├── outputs.zip                          # GENERADO: entregable de la corrida mock (ignorado por .gitignore)
+├── orchestration_state.json             # GENERADO: estado de la corrida mock (sin trackear)
+├── orchestration_log.txt                # GENERADO: auditoría de la corrida mock (sin trackear)
 └── .specify/memory/constitution.md                       # Constitución (5 principios)
 ```
 
-**Estado git:** último commit `c915ff8`. Cambios sin commitear: `pra_orchestrator.py`, `mocks_llm/`, `specs/003-*`, 7 archivos de test nuevos, modificaciones en `AGENTS.md`, `README.md`, `tests/conftest.py`.
+**Estado git:** último commit `3731485`, pusheado a `origin/main`. La iteración 003 quedó commiteada en dos commits (`e260836` código+tests, `3731485` limpieza/docs). Sin trackear quedan únicamente los artefactos GENERADOS de la corrida mock (`intro_docker/`, `orchestration_state.json`, `orchestration_log.txt`; `outputs.zip` está ignorado), que deben archivarse antes de lanzar la corrida con backend real.
 
 ---
 
@@ -155,7 +183,7 @@ python pra_orchestrator.py status
 ### Verificación obligatoria tras cualquier cambio:
 ```bash
 python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing -q
-# Esperado: 95 passed, cobertura pra_helper >= 85% (actual 88%), pra_orchestrator >= 85% (actual 88%), ~13s
+# Esperado: 95 passed, cobertura pra_helper >= 85% (actual 88%), pra_orchestrator >= 85% (actual 88%), ~20s
 ```
 
 ---
@@ -256,8 +284,8 @@ Las plantillas maestras usan `nro`/`folder_name`/`titulo_sesion`/`objetivos`/`id
 
 1. **Para usar el sistema desatendido:** `python pra_orchestrator.py run <documento> --backend mock` (o `opencode` con CLI real disponible).
 2. **Para modificar `pra_helper.py` o `pra_orchestrator.py`:** ejecutar SIEMPRE la suite completa antes de cerrar; mantener ≥ 95 pruebas y cobertura ≥ 85% en ambos módulos.
-3. **Para commitear esta iteración:** los cambios están sin commitear (ver estado git arriba); sugerencia: un commit para spec+implementación+tests, otro para docs.
-4. **Posibles mejoras futuras:** backend opencode real probado E2E (solo se probó mock), paralelización no aplica por constitución IV, soporte multi-documento.
+3. **Commits de esta iteración: YA REALIZADOS** — `e260836` (spec+implementación+tests) y `3731485` (limpieza de rutas+docs), ambos pusheados a `origin/main`.
+4. **SIGUIENTE PASO ACORDADO (Opción B):** primera corrida real con `--backend opencode --timeout-s 600 --max-retries 3`, previo archivado de los artefactos mock (ver sección "Última Compactación"); luego evaluar la calidad del contenido generado por el LLM. Mejoras futuras adicionales: paralelización no aplica por constitución IV, soporte multi-documento.
 
 ---
 

@@ -6,3 +6,8 @@ __pycache__/
 .pytest_cache/
 .coverage
 outputs.zip
+
+# Artefactos generados por corridas del orquestador
+intro_docker/
+orchestration_state.json
+orchestration_log.txt
