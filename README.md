@@ -18,7 +18,12 @@ test_opencode/
 │   ├── presentation_plan_meta_prompt.md
 │   └── presentation_slide_meta_prompt.md
 ├── AGENTS.md                       # Directrices para agentes de IA
-├── pra_helper.py                   # Motor de automatización (CLI)
+├── pra_helper.py                   # Motor de automatización (CLI, único escritor de artefactos)
+├── pra_orchestrator.py             # Orquestador automático del flujo completo (CLI)
+├── mocks_llm/                      # Respuestas LLM deterministas para el backend mock
+│   ├── plan.txt
+│   ├── sesion1.txt
+│   └── sesion2.txt
 ├── pytest.ini                      # Configuración del marco de pruebas
 ├── tests/                          # Suite de pruebas automatizadas (pytest)
 │   ├── conftest.py                 # Fixtures compartidas (aislamiento, mocks LLM)
@@ -46,6 +51,17 @@ test_opencode/
 │       ├── tasks.md                # 14 tareas en 5 fases + defectos corregidos
 │       └── contracts/
 │           └── test-runner-contract.md  # Contrato del ejecutor de pruebas
+├── specs/003-orquestador-automatizado-pra/   # (dentro de specs/)
+│   ├── spec.md                     # Especificación del orquestador automático
+│   ├── research.md                 # Decisiones técnicas D1-D7
+│   ├── data-model.md               # Estado de orquestación y reportes
+│   ├── plan.md                     # Arquitectura de pra_orchestrator.py
+│   ├── quickstart.md               # Escenarios E2E del orquestador
+│   ├── tasks.md                    # T301-T322 en 6 fases
+│   ├── contracts/
+│   │   └── orchestrator-contract.md  # CLI run/resume/status y códigos de salida
+│   └── checklists/
+│       └── requirements.md
 └── .specify/
     └── memory/
         └── constitution.md         # Constitución del proyecto
@@ -86,24 +102,46 @@ python -m pip install pytest pytest-cov
 
 ## Testing y Calidad
 
-El proyecto cuenta con una suite de pruebas automatizadas basada en **pytest** (30 pruebas, cobertura de `pra_helper.py` ≥ 85%):
+El proyecto cuenta con una suite de pruebas automatizadas basada en **pytest** (95 pruebas: motor + orquestador, cobertura de `pra_helper.py` y `pra_orchestrator.py` ≥ 85%):
 
 ```bash
 # Suite completa
 pytest
 
 # Suite con reporte de cobertura
-pytest --cov=pra_helper --cov-report=term-missing
+pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing
 
 # Por categorías
-pytest tests/unit/            # Pruebas unitarias del motor
+pytest tests/unit/            # Pruebas unitarias del motor y del orquestador
 pytest tests/integration/     # Pruebas de integración CLI
 pytest tests/constitutional/  # Pruebas de reglas constitucionales
 ```
 
 Las pruebas se ejecutan en directorios temporales aislados (`tmp_path`) y no modifican el workspace. Ver `specs/002-sistema-testing-pra/quickstart.md` para la guía completa.
 
-**Regla obligatoria**: Toda modificación a `pra_helper.py` debe mantener la suite en verde (`30 passed`) antes de considerarse completada.
+**Regla obligatoria**: Toda modificación a `pra_helper.py` o `pra_orchestrator.py` debe mantener la suite en verde antes de considerarse completada.
+
+## Orquestador Automático
+
+`pra_orchestrator.py` ejecuta el flujo PRA completo de forma desatendida, delegando toda mutación de artefactos en `pra_helper.py`:
+
+```bash
+# Corrida desatendida con backend mock determinista
+python pra_orchestrator.py run documento_fuente.md --backend mock
+
+# Con backend real (CLI de OpenCode) y reintentos configurables
+python pra_orchestrator.py run documento_fuente.md --backend opencode --max-retries 3
+
+# Reanudar una corrida interrumpida / inspeccionar estado
+python pra_orchestrator.py resume
+python pra_orchestrator.py status
+```
+
+Características clave:
+- **Bucle de autocorrección**: ante respuestas LLM defectuosas (CSS inline, JSON malformado), reintenta hasta `--max-retries` veces anexando un diagnóstico al prompt.
+- **Puertas constitucionales**: valida exit code, ausencia de CSS inline y completitud de láminas tras cada sesión; exige suite verde y cobertura ≥ 85% antes de empaquetar.
+- **Estado reanudable**: persistencia atómica en `orchestration_state.json`; auditoría en `orchestration_log.txt`. Ambos quedan fuera de `outputs.zip`.
+- **Códigos de salida**: `0` éxito | `1` validación incumplida | `2` estado/secuencialidad | `3` backend no disponible | `4` uso incorrecto.
 
 ## Uso
 
@@ -278,6 +316,7 @@ El LLM debe generar una respuesta con 5 bloques delimitados:
 - **SESION_PRA_RESUMEN.md**: Documento de contexto completo de la sesión de desarrollo
 - **specs/001-sistema-automatizacion-presentaciones-pra/**: Especificación del motor PRA
 - **specs/002-sistema-testing-pra/**: Especificación del sistema de testing y calidad
+- **specs/003-orquestador-automatizado-pra/**: Especificación del orquestador automático
 
 ## Licencia
 

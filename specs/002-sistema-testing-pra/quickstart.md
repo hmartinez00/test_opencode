@@ -6,7 +6,7 @@
 
 - Python 3.11+ en PATH.
 - Dependencias instaladas: `python -m pip install pytest pytest-cov`
-- Ejecutar siempre desde la raiz del repositorio (`C:\laragon\www\test\test\test_opencode\`).
+- Ejecutar siempre desde la raiz del repositorio (`C:\laragon\www\test_opencode\`).
 
 ---
 

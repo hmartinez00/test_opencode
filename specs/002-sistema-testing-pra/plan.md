@@ -23,7 +23,7 @@ Este plan establece la arquitectura y estrategia de pruebas automatizadas para e
 
 **Estructura de Archivos**:
 ```text
-C:\laragon\www\test\test\test_opencode\
+C:\laragon\www\test_opencode\
 ├── pytest.ini
 ├── pra_helper.py
 ├── tests/
@@ -58,7 +58,7 @@ C:\laragon\www\test\test\test_opencode\
 
 ## Estrategia de Aislamiento y Mapeo de Rutas
 
-Para asegurar que las pruebas no alteren el directorio actual `C:\laragon\www\test\test\test_opencode\`:
+Para asegurar que las pruebas no alteren el directorio actual `C:\laragon\www\test_opencode\`:
 1. **Fixture `isolated_env`:** Cada test de integración se ejecuta cambiando el directorio de trabajo actual (`os.chdir`) a un `tmp_path` limpio proporcionado por `pytest`.
 2. **Plantillas maestras:** `conftest.py` provee copias de respaldo o mocks de `research_prompts_templates/` para que `init` y `prompt-session` encuentren las plantillas sin depender de la red o junction externa.
 3. **Restauración de CWD:** Se utiliza una fixture con `yield` para restaurar `os.chdir(original_cwd)` al finalizar cada test.

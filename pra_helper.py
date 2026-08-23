@@ -183,8 +183,6 @@ def cmd_init(args):
         sys.exit(1)
 
     prompt_template_path = Path(__file__).parent / "research_prompts_templates" / "presentation_plan_meta_prompt.md"
-    if not prompt_template_path.exists():
-        prompt_template_path = Path(r"C:\laragon\www\test\test\test_opencode\research_prompts_templates\presentation_plan_meta_prompt.md")
     if prompt_template_path.exists():
         template = prompt_template_path.read_text(encoding=ENCODING)
     else:
@@ -358,10 +356,7 @@ def cmd_prompt_session(args):
         print(json.dumps({"error": f"Error leyendo registros: {e}"}))
         sys.exit(3)
 
-    slide_template_path = Path(r"C:\laragon\www\test\test\test_opencode\research_prompts_templates\presentation_slide_meta_prompt.md")
-    if not slide_template_path.exists():
-        slide_template_path = Path(__file__).parent / "research_prompts_templates" / "presentation_slide_meta_prompt.md"
-
+    slide_template_path = Path(__file__).parent / "research_prompts_templates" / "presentation_slide_meta_prompt.md"
     if slide_template_path.exists():
         template = slide_template_path.read_text(encoding=ENCODING)
     else:

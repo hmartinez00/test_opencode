@@ -37,7 +37,7 @@ Sistema automatizado para la construccion modular y progresiva de presentaciones
 ## Estructura del Proyecto (Codigo Fuente)
 
 ```text
-C:\laragon\www\test\test\test_opencode\
+C:\laragon\www\test_opencode\
 ├── research_prompts_templates/         # Junction a plantillas maestras de prompts
 │   ├── presentation_plan_meta_prompt.md
 │   ├── presentation_slide_meta_prompt.md

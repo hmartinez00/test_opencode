@@ -7,7 +7,7 @@
 - Python 3.11+ instalado y disponible en PATH.
 - Acceso a un LLM operativo desde OpenCode.
 - Documento fuente de ejemplo (cualquier formato soportado: .md, .txt, .ipynb, .pdf).
-- Directorio de trabajo limpio en `C:\laragon\www\test\test\test_opencode\`.
+- Directorio de trabajo limpio en `C:\laragon\www\test_opencode\`.
 
 ---
 

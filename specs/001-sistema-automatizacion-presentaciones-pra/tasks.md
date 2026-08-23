@@ -12,7 +12,7 @@
 
 ## Fase 1: Configuracion Inicial (Setup)
 
-- [ ] T001 Verificar entorno Python 3.11+ y estructura base del proyecto en `C:\laragon\www\test\test\test_opencode\`
+- [ ] T001 Verificar entorno Python 3.11+ y estructura base del proyecto en `C:\laragon\www\test_opencode\`
 - [ ] T002 [P] Verificar que el enlace de union `research_prompts_templates/` sea funcional y accesible
 - [ ] T003 [P] Verificar que `.specify/memory/constitution.md` exista y contenga los 5 principios fundamentales
 
@@ -20,7 +20,7 @@
 
 ## Fase 2: Componentes Fundamentales (Foundational - Motor `pra_helper.py`)
 
-- [ ] T004 [P] Crear esqueleto de `pra_helper.py` con manejo de argumentos CLI via `argparse` en `C:\laragon\www\test\test\test_opencode\pra_helper.py`
+- [ ] T004 [P] Crear esqueleto de `pra_helper.py` con manejo de argumentos CLI via `argparse` en `C:\laragon\www\test_opencode\pra_helper.py`
 - [ ] T005 [P] Implementar utilidades de lectura/escritura UTF-8 y manejo determinista de JSON (carga, fusion sin duplicados, guardado con indentacion de 2 espacios) en `pra_helper.py`
 - [ ] T006 [P] Implementar validador regex de Cero CSS Inline (deteccion y rechazo de `style="..."` en archivos Blade) en `pra_helper.py`
 

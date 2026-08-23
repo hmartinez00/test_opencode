@@ -15,7 +15,7 @@ La filosofia del proyecto es de **Plan Maestro + Construccion Progresiva por Ses
 Todo agente que trabaje en este entorno debe respetar y utilizar la siguiente estructura de archivos:
 
 ```text
-C:\laragon\www\test\test\test_opencode\
+C:\laragon\www\test_opencode\
 ├── research_prompts_templates/     <-- Enlace de union (junction) a las plantillas maestras de prompts
 │   ├── presentation_plan_meta_prompt.md
 │   ├── presentation_slide_meta_prompt.md
@@ -24,25 +24,41 @@ C:\laragon\www\test\test\test_opencode\
 ├── README.md                       <-- Documentacion publica del repositorio
 ├── SESION_PRA_RESUMEN.md           <-- Documento de contexto de sesion (para reanudar en otra sesion)
 ├── pra_helper.py                   <-- Motor de automatizacion (punto unico de escritura de archivos)
+├── pra_orchestrator.py             <-- Orquestador automatico del flujo completo (iteracion 003)
+├── mocks_llm/                      <-- Respuestas LLM deterministas del backend mock del orquestador
+│   ├── plan.txt
+│   ├── sesion1.txt
+│   └── sesion2.txt
 ├── pra_workflow_state.md           <-- Registro del estado y propuesta de arquitectura del proyecto
 ├── pytest.ini                      <-- Configuracion del marco de pruebas pytest
-├── tests/                          <-- Suite de pruebas automatizadas (iteracion 002)
+├── tests/                          <-- Suite de pruebas automatizadas (iteraciones 002 y 003)
 │   ├── conftest.py                 <-- Fixtures compartidas (aislamiento tmp_path, mocks LLM)
-│   ├── unit/                       <-- Pruebas unitarias de funciones del motor
+│   ├── unit/                       <-- Pruebas unitarias del motor y del orquestador
 │   ├── integration/                <-- Pruebas de integracion de comandos CLI
 │   └── constitutional/             <-- Pruebas de reglas constitucionales
 ├── specs/
-│   └── 001-sistema-automatizacion-presentaciones-pra/
-│       ├── spec.md                 <-- Especificacion funcional
-│       ├── plan.md                 <-- Contexto tecnico y arquitectura de codigo
-│       ├── research.md             <-- Research de tecnologias
-│       ├── data-model.md           <-- Modelo de datos y esquemas JSON
-│       ├── quickstart.md           <-- Guia de validacion end-to-end
-│       ├── tasks.md                <-- Lista de tareas en 7 fases
+│   ├── 001-sistema-automatizacion-presentaciones-pra/
+│   │   ├── spec.md                 <-- Especificacion funcional
+│   │   ├── plan.md                 <-- Contexto tecnico y arquitectura de codigo
+│   │   ├── research.md             <-- Research de tecnologias
+│   │   ├── data-model.md           <-- Modelo de datos y esquemas JSON
+│   │   ├── quickstart.md           <-- Guia de validacion end-to-end
+│   │   ├── tasks.md                <-- Lista de tareas en 7 fases
+│   │   ├── contracts/
+│   │   │   └── cli-contract.md     <-- Especificacion detallada de comandos CLI
+│   │   └── checklists/
+│   │       └── requirements.md     <-- Checklist de requerimientos
+│   └── 003-orquestador-automatizado-pra/
+│       ├── spec.md                 <-- Especificacion del orquestador automatico
+│       ├── research.md             <-- Decisiones tecnicas D1-D7
+│       ├── data-model.md           <-- Estado de orquestacion y log de auditoria
+│       ├── plan.md                 <-- Arquitectura interna del orquestador
+│       ├── quickstart.md           <-- Escenarios E2E desatendidos
+│       ├── tasks.md                <-- Tareas T301-T322 en 6 fases
 │       ├── contracts/
-│       │   └── cli-contract.md     <-- Especificacion detallada de comandos CLI
+│       │   └── orchestrator-contract.md  <-- CLI run/resume/status y codigos de salida
 │       └── checklists/
-│           └── requirements.md     <-- Checklist de requerimientos
+│           └── requirements.md
 ├── .specify/
 │   └── memory/
 │       └── constitution.md         <-- Constitucion del proyecto (5 principios no negociables)
@@ -83,9 +99,9 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
 * **Respetar el orden secuencial:** No se puede construir la Sesion $N$ si la Sesion $N-1$ no ha sido completada y sus cambios integrados con exito.
 
 ### Garantia de Calidad (Suite de Pruebas):
-* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` DEBE mantener la suite `pytest` en verde (30 pruebas aprobadas) antes de dar por terminada la tarea. Ejecutar: `pytest --cov=pra_helper --cov-report=term-missing`.
-* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` no debe descender del 85%.
-* **Nuevas funcionalidades requieren nuevas pruebas:** Todo cambio o feature en el motor debe incluir pruebas unitarias, de integracion o constitucionales segun corresponda, siguiendo la especificacion de `specs/002-sistema-testing-pra/`.
+* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (95 pruebas aprobadas) antes de dar por terminada la tarea. Ejecutar: `pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
+* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%.
+* **Nuevas funcionalidades requieren nuevas pruebas:** Todo cambio o feature en el motor o el orquestador debe incluir pruebas unitarias, de integracion o constitucionales segun corresponda, siguiendo la especificacion de `specs/002-sistema-testing-pra/`.
 
 ---
 
@@ -108,16 +124,23 @@ Cuando el usuario solicite acciones sobre el flujo PRA, el agente que intervenga
 ### Fase de Cierre (`@pra empaquetar`):
 1. Invocar `python pra_helper.py zip` para comprimir el proyecto y dejarlo listo para su descarga e integracion en Laravel.
 
+### Fase de Orquestacion Desatendida (`@pra automatizar`, iteracion 003):
+Alternativa a las fases manuales anteriores: `pra_orchestrator.py` ejecuta el flujo completo (init -> save-plan -> sesiones -> pytest -> zip) delegando TODA mutacion de artefactos en los comandos CLI de `pra_helper.py` via subprocess.
+1. Corrida desatendida: `python pra_orchestrator.py run <documento> [--backend mock|opencode] [--max-retries N]`.
+2. Reanudacion e inspeccion: `python pra_orchestrator.py resume` / `python pra_orchestrator.py status`.
+3. El orquestador aplica puertas constitucionales por sesion (exit code, regex anti CSS inline, laminas completas) y un bucle de reintentos con prompt de reflexion de error; exige suite verde + cobertura >= 85% antes de empaquetar.
+4. Sus unicos artefactos de escritura propios son `orchestration_state.json` y `orchestration_log.txt` (excluidos del zip). Contrato completo: `specs/003-orquestador-automatizado-pra/contracts/orchestrator-contract.md`.
+
 ### Fase de Verificacion (obligatoria tras cualquier cambio en el motor):
-1. Ejecutar la suite completa: `pytest --cov=pra_helper --cov-report=term-missing`.
-2. Verificar que las 30 pruebas pasen y que la cobertura de `pra_helper.py` sea >= 85%.
+1. Ejecutar la suite completa: `pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
+2. Verificar que las 95 pruebas pasen y que la cobertura de `pra_helper.py` y `pra_orchestrator.py` sea >= 85%.
 3. Si se agregaron funcionalidades nuevas, incorporar las pruebas correspondientes antes de cerrar la tarea.
 
 ---
 
 ## 5. Plantillas de Prompts
 
-Las plantillas maestras de prompts se encuentran en la carpeta `research_prompts_templates/` (enlace de union a `C:\laragon\www\test\researchs\workflow\research_prompts_templates`). Los archivos criticos para el flujo son:
+Las plantillas maestras de prompts se encuentran en la carpeta `research_prompts_templates/` (enlace de union a `C:\laragon\www\researchs\workflow\research_prompts_templates`). Los archivos criticos para el flujo son:
 
 * `presentation_plan_meta_prompt.md`: Genera el plan maestro con estructura JSON, clases CSS iniciales y comportamientos JS.
 * `presentation_slide_meta_prompt.md`: Genera laminas Blade, estilos, scripts y actualizaciones de registros para sesiones individuales.
@@ -134,6 +157,7 @@ El script `pra_helper.py` normaliza automaticamente los campos del plan maestro 
 * Cualquier cambio estructural en los registros o plantillas debe validarse antes de proceder a la siguiente sesion.
 * Las especificaciones completas del sistema se encuentran en `specs/001-sistema-automatizacion-presentaciones-pra/`.
 * La especificacion del sistema de testing y su guia de ejecucion se encuentran en `specs/002-sistema-testing-pra/`.
+* La especificacion del orquestador automatico y su contrato CLI se encuentran en `specs/003-orquestador-automatizado-pra/`.
 
 ---
 
