@@ -1,9 +1,9 @@
-# Continuación de Sesión: Orquestador Automatizado pra_orchestrator.py (Iteración 003)
+# Sesión PRA: Iteración 003 Commiteada, Primera Corrida E2E Mock Exitosa y Pre-vuelo del Backend Real
 
 > **Fecha:** 2026-08-22  
 > **Modelo:** opencode/big-pickle  
 > **Rama:** `main`  
-> **Último commit:** `3731485` (iteración 003 COMMITEADA y pusheada a `origin/main`)
+> **Último commit:** `da18dff` (resumen de sesión + gitignore de artefactos de corridas; iteración 003 ya pusheada en `e260836` y `3731485`)
 
 ---
 
@@ -123,14 +123,13 @@ C:\laragon\www\test_opencode\
 │       ├── contracts/orchestrator-contract.md
 │       └── checklists/requirements.md
 ├── ejemplos/introduccion_docker/documento_fuente.md      # Documento de prueba E2E real
-├── intro_docker/                        # GENERADO: proyecto de la corrida mock E2E (sin trackear)
-├── outputs.zip                          # GENERADO: entregable de la corrida mock (ignorado por .gitignore)
-├── orchestration_state.json             # GENERADO: estado de la corrida mock (sin trackear)
-├── orchestration_log.txt                # GENERADO: auditoría de la corrida mock (sin trackear)
+├── backup/mock_corrida1/                # ARCHIVO: salida completa de la corrida mock E2E
+│   ├── intro_docker/ / outputs.zip      #   (backup/ y outputs.zip ignorados por .gitignore)
+│   └── orchestration_state.json / orchestration_log.txt
 └── .specify/memory/constitution.md                       # Constitución (5 principios)
 ```
 
-**Estado git:** último commit `3731485`, pusheado a `origin/main`. La iteración 003 quedó commiteada en dos commits (`e260836` código+tests, `3731485` limpieza/docs). Sin trackear quedan únicamente los artefactos GENERADOS de la corrida mock (`intro_docker/`, `orchestration_state.json`, `orchestration_log.txt`; `outputs.zip` está ignorado), que deben archivarse antes de lanzar la corrida con backend real.
+**Estado git:** último commit `da18dff`, pusheado a `origin/main`. La iteración 003 quedó commiteada en dos commits (`e260836` código+tests, `3731485` limpieza/docs) y `da18dff` actualizó este resumen e ignoró los artefactos de corridas en `.gitignore`. Los artefactos de la corrida mock están archivados en `backup/mock_corrida1/` (ignorado), por lo que el working tree queda limpio para lanzar la corrida con backend real.
 
 ---
 
