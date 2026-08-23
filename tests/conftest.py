@@ -20,6 +20,11 @@ def isolated_dir(tmp_path, monkeypatch):
 def disable_setup_utf8(monkeypatch):
     """Neutraliza setup_utf8() para que capsys pueda capturar STDOUT sin interferencias."""
     monkeypatch.setattr(pra_helper, "setup_utf8", lambda: None)
+    try:
+        import pra_orchestrator
+        monkeypatch.setattr(pra_orchestrator, "setup_utf8", lambda: None)
+    except ImportError:
+        pass
 
 @pytest.fixture
 def run_cli(capsys):
@@ -31,6 +36,21 @@ def run_cli(capsys):
                 pra_helper.main()
         captured = capsys.readouterr()
         return exc_info.value.code, captured.out
+    return _run
+
+@pytest.fixture
+def run_orchestrator(capsys):
+    """Ejecuta el punto de entrada main() de pra_orchestrator.py con argumentos simulados.
+    Drena capsys en cada invocacion y retorna (codigo_salida, stdout)."""
+    import pra_orchestrator
+    def _run(*argv):
+        with mock.patch.object(sys, "argv", ["pra_orchestrator.py", *argv]):
+            try:
+                codigo = pra_orchestrator.main()
+            except SystemExit as e:
+                codigo = e.code
+        captured = capsys.readouterr()
+        return codigo, captured.out
     return _run
 
 @pytest.fixture

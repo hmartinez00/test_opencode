@@ -1,0 +1,46 @@
+Aquí tienes el Plan Maestro en formato JSON:
+
+```json
+{
+  "titulo": "Introducción a Docker",
+  "carpeta_snake_case": "intro_docker",
+  "idioma": "es",
+  "resumen_general": "Curso básico de Docker",
+  "sesiones": [
+    {
+      "numero": 1,
+      "titulo": "Conceptos Básicos",
+      "objetivo_pedagogico": "Aprender contenedores",
+      "laminas": [
+        {
+          "orden": 1,
+          "id_kebab_case": "que-es-docker",
+          "tipo": "portada",
+          "objetivo": "Introducción general",
+          "clases_css_requeridas": ["text-center", "docker-blue"],
+          "comportamientos_js_requeridos": ["ripple-effect"]
+        },
+        {
+          "orden": 2,
+          "id_kebab_case": "arquitectura",
+          "tipo": "contenido",
+          "objetivo": "Explicar daemon y cliente"
+        }
+      ]
+    },
+    {
+      "numero": 2,
+      "titulo": "Uso Práctico",
+      "objetivo_pedagogico": "Ejecutar comandos",
+      "laminas": [
+        {
+          "orden": 1,
+          "id_kebab_case": "comandos-basicos",
+          "tipo": "contenido",
+          "objetivo": "Mostrar docker run"
+        }
+      ]
+    }
+  ]
+}
+```

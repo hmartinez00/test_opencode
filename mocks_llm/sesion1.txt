@@ -1,0 +1,50 @@
+Aquí está la generación de las láminas para la sesión 1:
+
+{{- sesion1/que-es-docker.blade.php -}}
+<div class="text-center docker-blue">
+    <h1>¿Qué es Docker?</h1>
+    <p>Docker es una plataforma de contenedores.</p>
+</div>
+
+{{- sesion1/arquitectura.blade.php -}}
+<div class="slide-architecture">
+    <h2>Arquitectura de Docker</h2>
+    <p>Cliente, Host y Registro.</p>
+</div>
+
+**BLOQUE 2**
+```css
+.docker-blue {
+    color: #2496ed;
+}
+.slide-architecture {
+    padding: 20px;
+}
+```
+
+**BLOQUE 3**
+```javascript
+// Lamina que-es-docker
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("Docker slide loaded");
+});
+```
+
+**BLOQUE 4**
+<x-slide view="sesion1.que-es-docker" data-title="¿Qué es Docker?" />
+<x-slide view="sesion1.arquitectura" data-title="Arquitectura" />
+
+**BLOQUE 5**
+```json
+{
+  "nuevas_clases": [
+    {"nombre": "docker-blue", "proposito": "Color oficial de Docker", "implementada": true},
+    {"nombre": "slide-architecture", "proposito": "Estilos de slide de arquitectura", "implementada": true}
+  ],
+  "clases_materializadas": ["docker-blue", "slide-architecture"],
+  "nuevos_comportamientos": [
+    {"nombre": "ripple-effect", "proposito": "Efecto click", "implementada": true}
+  ],
+  "comportamientos_materializados": ["ripple-effect"]
+}
+```

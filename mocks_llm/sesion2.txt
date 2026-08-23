@@ -1,0 +1,37 @@
+Aquí está la generación de las láminas para la sesión 2:
+
+{{- sesion2/comandos-basicos.blade.php -}}
+<div class="slide-comandos">
+    <h2>Comandos Básicos</h2>
+    <p>docker run, docker ps, docker stop.</p>
+</div>
+
+**BLOQUE 2**
+```css
+.slide-comandos {
+    font-family: monospace;
+}
+```
+
+**BLOQUE 3**
+```javascript
+// Lamina comandos-basicos
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("Sesion 2 cargada");
+});
+```
+
+**BLOQUE 4**
+<x-slide view="sesion2.comandos-basicos" data-title="Comandos Básicos" />
+
+**BLOQUE 5**
+```json
+{
+  "nuevas_clases": [
+    {"nombre": "slide-comandos", "proposito": "Estilo monoespaciado para comandos", "implementada": true}
+  ],
+  "clases_materializadas": ["slide-comandos"],
+  "nuevos_comportamientos": [],
+  "comportamientos_materializados": []
+}
+```
