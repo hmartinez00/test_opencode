@@ -65,10 +65,10 @@ C:\laragon\www\test_opencode\
 ├── ejemplos/
 │   └── introduccion_docker/
 │       └── documento_fuente.md     <-- Documento fuente de prueba para validar el flujo completo
-└── output_projects/                <-- Subdirectorio maestro de proyectos generados (iteracion 004;
-    |                                    overridable via variable de entorno PRA_OUTPUT_DIR)
-    ├── outputs.zip                 <-- Entregable empaquetado (generado por `pra_helper.py zip`)
-    └── [nombre_proyecto_snake_case]/   <-- Directorio generado del proyecto activo
+└── [Ruta configurada en PRA_OUTPUT_DIR] <-- Subdirectorio maestro de proyectos generados (iteracion 005;
+    |                                    default: C:\laragon\www\product_samples\slides)
+    ├── [nombre_proyecto_snake_case]/   <-- Directorio generado del proyecto activo
+        ├── outputs.zip                 <-- Entregable empaquetado (generado por `pra_helper.py zip`)
         ├── presentation_plan.json      <-- Plan maestro normalizado
         ├── class_registry.json         <-- Registro vivo de clases CSS implementadas
         ├── js_registry.json            <-- Registro vivo de comportamientos JavaScript implementados
@@ -100,11 +100,11 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
 ### Preservacion del Estado (Fuente de Verdad):
 * **No escribir directamente en registries ni combinar archivos Blade manualmente:** Los agentes deben invocar siempre el script `pra_helper.py` con los argumentos apropiados para delegar la creacion y actualizacion del proyecto. Esto asegura que la logica regex y de fusion de JSONs sea 100% precisa y determinista.
 * **Respetar el orden secuencial:** No se puede construir la Sesion $N$ si la Sesion $N-1$ no ha sido completada y sus cambios integrados con exito.
-* **Subdirectorio maestro (iteracion 004):** Todo proyecto generado se aloja bajo `output_projects/` (overridable via variable de entorno `PRA_OUTPUT_DIR`); el entregable `outputs.zip` tambien se genera dentro de ese subdirectorio. La raiz del repositorio debe permanecer limpia. Detalles: `specs/004-subdirectorio-maestro-proyectos-pra/`.
+* **Subdirectorio maestro (iteracion 005):** Todo proyecto generado se aloja bajo `C:\laragon\www\product_samples\slides` (overridable via variable de entorno `PRA_OUTPUT_DIR`); el entregable `outputs.zip` tambien se genera dentro de cada subdirectorio de proyecto. La raiz del repositorio debe permanecer limpia. Detalles: `specs/005-directorio-maestro-rutas-y-zip/`.
 
 ### Garantia de Calidad (Suite de Pruebas):
-* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (105 pruebas aprobadas) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
-* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%.
+* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (102 pruebas aprobadas en la verificacion final del repositorio) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
+* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%. La verificacion final actual reporta 88% y 87% respectivamente.
 * **Nuevas funcionalidades requieren nuevas pruebas:** Todo cambio o feature en el motor o el orquestador debe incluir pruebas unitarias, de integracion o constitucionales segun corresponda, siguiendo la especificacion de `specs/002-sistema-testing-pra/`.
 
 ---

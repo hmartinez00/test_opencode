@@ -54,12 +54,12 @@ def test_run_mock_flujo_completo_exitoso(run_orchestrator, entorno_e2e, isolated
         proyecto / "sesion2" / "comandos-basicos.blade.php",
     ):
         assert lamina.exists(), f"Falta {lamina}"
-    # Entregable y exclusiones constitucionales
-    zip_path = isolated_dir / po.OUTPUT_BASE_DIR / "outputs.zip"
+    # Entregable (iteracion 005: outputs.zip vive DENTRO del directorio del proyecto)
+    zip_path = proyecto / "outputs.zip"
     assert zip_path.exists()
-    # Iteracion 004: sin entregables ni carpetas de proyecto en la raiz
+    # Iteracion 004/005: sin entregables ni carpetas de proyecto en la raiz del maestro
     assert not (isolated_dir / "outputs.zip").exists()
-    assert not (isolated_dir / "intro_docker").exists()
+    assert not (proyecto / ".." / "outputs.zip").exists()
     with zipfile.ZipFile(zip_path) as zf:
         nombres = zf.namelist()
     assert not any("orchestration" in n for n in nombres)
@@ -87,7 +87,8 @@ def test_run_mock_determinismo_entre_corridas(run_orchestrator, entorno_e2e, iso
             codigo, _ = run_orchestrator("run", "documento_fuente.md", "--backend", "mock")
             assert codigo == 0
             hashes.append(arbol_hashes(destino / po.OUTPUT_BASE_DIR / "intro_docker"))
-            assert (destino / po.OUTPUT_BASE_DIR / "outputs.zip").exists()
+            # Iteracion 005: outputs.zip vive dentro del directorio del proyecto
+            assert (destino / po.OUTPUT_BASE_DIR / "intro_docker" / "outputs.zip").exists()
         finally:
             os.chdir(cwd_previo)
 

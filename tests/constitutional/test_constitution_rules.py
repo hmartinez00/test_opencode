@@ -48,7 +48,10 @@ def test_constitucion_III_estado_determinista_json_malformado(run_cli, isolated_
 
     assert code == 1
     assert "Error de parseo JSON" in json.loads(out)["error"]
-    assert list(isolated_dir.iterdir()) == []
+    # Iteracion 005: el conftest crea 'product_samples' en isolated_dir por ser la ruta base configurada
+    presentes = {p.name for p in isolated_dir.iterdir()}
+    # Debe existir solo el directorio base (producto del conftest); sin carpetas de proyecto
+    assert presentes == {"product_samples"}
 
 
 def test_respuesta_llm_sin_laminas_aborta(run_cli, initialized_project):

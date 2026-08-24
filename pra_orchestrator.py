@@ -45,9 +45,26 @@ INLINE_STYLE_PATTERN = re.compile(r'style\s*=\s*["\']')
 COVERAGE_ROW_PATTERN = re.compile(r"pra_helper\.py\s+\d+\s+\d+\s+(\d+(?:\.\d+)?)%")
 COVERAGE_MINIMA = 85.0
 STDERR_MAX_CHARS = 500
-# Subdirectorio maestro que aloja todos los proyectos generados (iteracion 004).
-# Mismo default y variable de entorno que en pra_helper.py (D-405).
-OUTPUT_BASE_DIR = Path(os.environ.get("PRA_OUTPUT_DIR", "output_projects"))
+DEFAULT_OUTPUT_BASE_DIR = Path(r"C:\laragon\www\product_samples\slides")
+
+def _base_salida_candidata():
+    """Retorna la ruta base configurada SIN validar."""
+    env_dir = os.environ.get("PRA_OUTPUT_DIR")
+    return Path(env_dir) if env_dir else DEFAULT_OUTPUT_BASE_DIR
+
+def _resolve_orchestrator_base_dir():
+    """Resuelve la ruta base en el orquestador (modo no-interactivo)."""
+    base_dir = _base_salida_candidata()
+    if not base_dir.is_dir():
+        print(json.dumps({"error": "PRA_OUTPUT_DIR_INVALID", "mensaje": f"El directorio maestro '{base_dir}' no existe o no es valido. Por favor defina PRA_OUTPUT_DIR."}))
+        sys.exit(EXIT_VALIDACION)
+    return base_dir
+
+def __getattr__(name):
+    # PEP 562: resolucion perezosa
+    if name == "OUTPUT_BASE_DIR":
+        return _base_salida_candidata()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 EXIT_OK = 0
 EXIT_VALIDACION = 1
@@ -349,8 +366,8 @@ def buscar_proyecto():
     Prioriza el subdirectorio maestro (OUTPUT_BASE_DIR); si no hay proyectos
     alli, aplica fallback sobre la raiz para proyectos legacy (iteracion 004)."""
     cwd = Path.cwd()
-    base = cwd / OUTPUT_BASE_DIR
-    scopes = [base] if base == cwd else [base, cwd]
+    base = _base_salida_candidata()
+    scopes = [base] if base.resolve() == cwd.resolve() else [base, cwd]
     for scope in scopes:
         if not scope.is_dir():
             continue
@@ -636,7 +653,12 @@ class Orquestador:
         print("[FASE] zip: empaquetando entregable...")
         t0 = time.time()
         codigo, out, err = run_helper("zip")
-        ruta_zip = Path.cwd() / OUTPUT_BASE_DIR / "outputs.zip"
+        proyecto = buscar_proyecto()
+        if not proyecto:
+             fallar_fase(fase, "Proyecto no encontrado para localizar zip")
+             guardar_estado(estado)
+             return EXIT_ESTADO
+        ruta_zip = proyecto / "outputs.zip"
         if codigo != 0 or not ruta_zip.exists():
             detalle = ((out.strip() + " " + err.strip()).strip()
                        or f"outputs.zip no fue generado (codigo {codigo})")[:STDERR_MAX_CHARS]

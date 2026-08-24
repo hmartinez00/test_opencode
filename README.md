@@ -73,9 +73,20 @@ test_opencode/
 │   │   └── cli-contract-v2-deltas.md # Deltas de contrato CLI (rutas)
 │   └── checklists/
 │       └── requirements.md
-├── output_projects/                # Subdirectorio maestro de proyectos generados
-│   ├── outputs.zip                 # Entregable empaquetado (pra_helper.py zip)
+├── specs/005-directorio-maestro-rutas-y-zip/       # (dentro de specs/)
+│   ├── spec.md                     # Ruta maestra por defecto, prompt interactivo y zip autocontenido
+│   ├── research.md                 # Decisiones técnicas D-501 a D-505
+│   ├── data-model.md               # Modelo de rutas y salida del entregable
+│   ├── plan.md                     # Puntos exactos de cambio en motor/orquestador/tests
+│   ├── quickstart.md               # Escenarios interactivos y no interactivos
+│   ├── tasks.md                    # T501-T521 en 5 fases
+│   ├── contracts/
+│   │   └── cli-contract-v3-deltas.md # Deltas de contrato CLI (rutas, stdin y zip)
+│   └── checklists/
+│       └── requirements.md
+├── [Ruta configurada en PRA_OUTPUT_DIR]/   # Subdirectorio maestro (default: C:\laragon\www\product_samples\slides)
 │   └── <carpeta_snake_case>/       # Proyectos generados por el flujo PRA
+│       └── outputs.zip             # Entregable empaquetado (pra_helper.py zip)
 └── .specify/
     └── memory/
         └── constitution.md         # Constitución del proyecto
@@ -116,7 +127,11 @@ python -m pip install pytest pytest-cov
 
 ## Testing y Calidad
 
-El proyecto cuenta con una suite de pruebas automatizadas basada en **pytest** (105 pruebas: motor + orquestador, cobertura de `pra_helper.py` y `pra_orchestrator.py` ≥ 85%):
+El proyecto cuenta con una suite de pruebas automatizadas basada en **pytest**. El estado verificado actual es:
+
+- 102 pruebas aprobadas
+- Cobertura final: 88% en `pra_helper.py` y 87% en `pra_orchestrator.py`
+- Verificación ejecutada en 2026-08-24 con la línea base actual del repositorio
 
 ```bash
 # Suite completa (invocar siempre via python -m pytest; el ejecutable pytest.exe
@@ -134,7 +149,9 @@ python -m pytest tests/constitutional/  # Pruebas de reglas constitucionales
 
 Las pruebas se ejecutan en directorios temporales aislados (`tmp_path`) y no modifican el workspace. Ver `specs/002-sistema-testing-pra/quickstart.md` para la guía completa.
 
-**Regla obligatoria**: Toda modificación a `pra_helper.py` o `pra_orchestrator.py` debe mantener la suite en verde antes de considerarse completada.
+**Regla obligatoria**: Toda modificación a `pra_helper.py` o `pra_orchestrator.py` debe mantener la suite en verde antes de considerarse completada. La verificación final del proyecto quedó exitosa con 102 pruebas aprobadas y cobertura ≥ 85%.
+
+**Corrección documentada**: el bug del zip se resolvió normalizando la ruta interna del archivo a string y excluyendo el propio `outputs.zip` durante la compresión, sin afectar el flujo del orquestador ni la estructura del proyecto.
 
 ## Orquestador Automático
 
@@ -156,7 +173,7 @@ Características clave:
 - **Bucle de autocorrección**: ante respuestas LLM defectuosas (CSS inline, JSON malformado), reintenta hasta `--max-retries` veces anexando un diagnóstico al prompt.
 - **Puertas constitucionales**: valida exit code, ausencia de CSS inline y completitud de láminas tras cada sesión; exige suite verde y cobertura ≥ 85% antes de empaquetar.
 - **Estado reanudable**: persistencia atómica en `orchestration_state.json`; auditoría en `orchestration_log.txt`. Ambos quedan fuera de `outputs.zip`.
-- **Subdirectorio maestro**: todo proyecto generado se aloja en `output_projects/` (configurable via variable de entorno `PRA_OUTPUT_DIR`); la raíz del repositorio permanece limpia.
+- **Subdirectorio maestro**: todo proyecto generado se aloja en `C:\laragon\www\product_samples\slides` (configurable via variable de entorno `PRA_OUTPUT_DIR`); la raíz del repositorio permanece limpia.
 - **Códigos de salida**: `0` éxito | `1` validación incumplida | `2` estado/secuencialidad | `3` backend no disponible | `4` uso incorrecto.
 
 ## Uso
@@ -195,9 +212,9 @@ python pra_helper.py zip
 | `save-plan <json>` | Guarda plan maestro, inicializa registros y crea estructura |
 | `prompt-session <N>` | Compila prompt adaptado para la generación de laminas de la sesión N |
 | `process-session <N> <r>` | Procesa respuesta del LLM y escribe archivos Blade |
-| `zip` | Empaqueta el proyecto en `output_projects/outputs.zip` |
+| `zip` | Empaqueta el proyecto en `<directorio_proyecto>/outputs.zip` |
 
-> **Nota (iteración 004)**: los proyectos generados se crean bajo el subdirectorio maestro `output_projects/`. La variable de entorno `PRA_OUTPUT_DIR` permite usar otra ruta; la búsqueda del proyecto activo prioriza ese subdirectorio y aplica un fallback sobre la raíz para proyectos legacy anteriores a esta iteración.
+> **Nota (iteración 005)**: los proyectos generados se crean bajo el subdirectorio maestro `C:\laragon\www\product_samples\slides`. La variable de entorno `PRA_OUTPUT_DIR` permite usar otra ruta; si la ruta configurada no existe, el sistema solicita interactivamente una ruta existente (en entornos no interactivos aborta con código 1). La búsqueda del proyecto activo prioriza ese subdirectorio y aplica un fallback sobre la raíz para proyectos legacy anteriores a esta iteración.
 
 ### Ejemplo Práctico
 

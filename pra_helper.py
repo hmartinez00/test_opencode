@@ -30,9 +30,63 @@ KEBAB_PATTERN = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 FOLDER_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 INLINE_STYLE_PATTERN = re.compile(r'style\s*=\s*["\']')
 REGISTRY_CLASS_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
-# Subdirectorio maestro que aloja todos los proyectos generados (iteracion 004).
-# Overridable via variable de entorno PRA_OUTPUT_DIR.
-OUTPUT_BASE_DIR = Path(os.environ.get("PRA_OUTPUT_DIR", "output_projects"))
+DEFAULT_OUTPUT_BASE_DIR = Path(r"C:\laragon\www\product_samples\slides")
+
+
+def _base_salida_candidata():
+    """Retorna la ruta base configurada (PRA_OUTPUT_DIR o default) SIN validar existencia."""
+    env_dir = os.environ.get("PRA_OUTPUT_DIR")
+    return Path(env_dir) if env_dir else DEFAULT_OUTPUT_BASE_DIR
+
+
+def resolve_output_base_dir(interactive=True, max_reintentos=3):
+    """Resuelve y valida la ruta base de proyectos (iteracion 005).
+
+    Prioriza PRA_OUTPUT_DIR sobre DEFAULT_OUTPUT_BASE_DIR. Si la ruta no existe:
+    - interactive=True y TTY: prompt con hasta max_reintentos reintentos.
+    - caso contrario: aborta con exit 1 y JSON de error (PRA_OUTPUT_DIR_INVALID).
+    """
+    base_dir = _base_salida_candidata()
+    if base_dir.is_dir():
+        return base_dir
+
+    if not (interactive and sys.stdin.isatty()):
+        print(json.dumps({
+            "error": "PRA_OUTPUT_DIR_INVALID",
+            "mensaje": (
+                f"El directorio maestro '{base_dir}' no existe o no es valido. "
+                "Cree el directorio o defina una ruta existente via PRA_OUTPUT_DIR."
+            ),
+        }))
+        sys.exit(1)
+
+    for _ in range(max_reintentos):
+        try:
+            print(f"Advertencia: El directorio maestro '{base_dir}' no existe.")
+            ruta_usuario = input(
+                "Por favor, ingrese una ruta de directorio existente para alojar el proyecto: "
+            ).strip().strip('"').strip("'")
+        except (EOFError, KeyboardInterrupt):
+            sys.exit(1)
+        candidato = Path(ruta_usuario) if ruta_usuario else None
+        if candidato is not None and candidato.is_dir():
+            return candidato
+        print(f"Error: La ruta '{ruta_usuario}' no es un directorio existente.")
+
+    print(json.dumps({
+        "error": "PRA_OUTPUT_DIR_INVALID",
+        "mensaje": "Numero maximo de reintentos alcanzado sin una ruta valida.",
+    }))
+    sys.exit(1)
+
+
+def __getattr__(name):
+    # PEP 562: resolucion perezosa para compatibilidad (iteracion 005).
+    # La validacion/prompts ocurren solo en operaciones de escritura via
+    # resolve_output_base_dir(); aqui se expone la ruta candidata sin exit.
+    if name == "OUTPUT_BASE_DIR":
+        return _base_salida_candidata()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # ============================================================
@@ -162,10 +216,11 @@ def normalize_plan(plan):
     return normalized
 
 
-def get_project_dir(plan):
-    """Retorna el Path del directorio del proyecto segun el plan (bajo OUTPUT_BASE_DIR)."""
+def get_project_dir(plan, interactive=False):
+    """Retorna el Path del directorio del proyecto segun el plan (bajo OUTPUT_BASE_DIR resuelta)."""
     folder = plan.get("carpeta_snake_case") or plan.get("folder_name", "")
-    return Path.cwd() / OUTPUT_BASE_DIR / folder
+    base_dir = resolve_output_base_dir(interactive=interactive)
+    return base_dir / folder
 
 
 # ============================================================
@@ -214,7 +269,7 @@ def cmd_save_plan(args):
         sys.exit(2)
 
     plan = normalize_plan(plan_raw)
-    project_dir = get_project_dir(plan)
+    project_dir = get_project_dir(plan, interactive=True)
 
     try:
         project_dir.mkdir(parents=True, exist_ok=True)
@@ -312,8 +367,9 @@ def find_project_dir():
     Prioriza el subdirectorio maestro (OUTPUT_BASE_DIR); si no hay proyectos
     alli, aplica fallback sobre la raiz para proyectos legacy (iteracion 004)."""
     cwd = Path.cwd()
-    base = cwd / OUTPUT_BASE_DIR
-    scopes = [base] if base == cwd else [base, cwd]
+    # Buscar en subdirectorio maestro (candidato) y luego fallback a CWD
+    base = _base_salida_candidata()
+    scopes = [base] if base.resolve() == cwd.resolve() else [base, cwd]
     for scope in scopes:
         if not scope.is_dir():
             continue
@@ -664,15 +720,24 @@ def cmd_zip(args):
         print(json.dumps({"error": "No hay sesiones completadas para empaquetar"}))
         sys.exit(1)
 
-    zip_path = Path.cwd() / OUTPUT_BASE_DIR / "outputs.zip"
-    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    # Asegurar que el directorio del proyecto exista
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    zip_path = project_dir / "outputs.zip"
     try:
+        # Eliminar el archivo de fecha y tiempo en el ZIP para determinismo
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for root, dirs, files in os.walk(project_dir):
-                for file in files:
+                for file in sorted(files):
+                    if file == "outputs.zip":
+                        continue
                     file_path = Path(root) / file
-                    arcname = file_path.relative_to(project_dir.parent)
-                    zf.write(file_path, arcname)
+                    arcname = str(file_path.relative_to(project_dir.parent)).replace("\\", "/")
+                    content = file_path.read_bytes()
+                    info = zipfile.ZipInfo(arcname)
+                    info.date_time = (2026, 8, 24, 0, 0, 0)
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    zf.writestr(info, content)
     except Exception as e:
         print(json.dumps({"error": f"Error creando ZIP: {e}"}))
         sys.exit(2)

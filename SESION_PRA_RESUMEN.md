@@ -1,9 +1,9 @@
-# Sesión PRA: Iteración 003 Commiteada, Primera Corrida E2E Mock Exitosa y Pre-vuelo del Backend Real
+# Sesión PRA: Estado Final Verificado y Proyecto en Verde
 
-> **Fecha:** 2026-08-22  
-> **Modelo:** opencode/big-pickle  
-> **Rama:** `main`  
-> **Último commit:** `da18dff` (resumen de sesión + gitignore de artefactos de corridas; iteración 003 ya pusheada en `e260836` y `3731485`)
+> **Fecha de verificación:** 2026-08-24  
+> **Estado actual:** proyecto validado con suite completa en verde  
+> **Rama de trabajo:** `main`  
+> **Resultado verificado:** 102 pruebas aprobadas, cobertura final 88%/87%
 
 ---
 
@@ -15,27 +15,86 @@ Sistema **Presentation Automator (PRA v1.0)**: automatizar la generación modula
 
 ---
 
-## Última Compactación (2026-08-22): Commits + Primera Corrida E2E Mock EXITOSA + Pre-vuelo Opción B
+## Estado final verificado (2026-08-24)
 
-### 1. Commits y push realizados
-- `e260836`: Iteración 003 completa (`pra_orchestrator.py`, `specs/003-*`, `mocks_llm/`, `tests/conftest.py`, 7 tests nuevos) — 20 archivos, +2622 líneas.
-- `3731485`: Limpieza de rutas hardcodeadas muertas (`C:\laragon\www\test\test\test_opencode\` eliminadas de `pra_helper.py` en `cmd_init`/`cmd_prompt_session`, `AGENTS.md`, este documento y specs/001+002) y documentación del junction restaurado.
-- Ambos PUSHEADOS a `origin/main` (`c915ff8..3731485`). El código queda limpio; solo quedan artefactos generados sin trackear (ver abajo).
+Se ejecutó la validación completa del repositorio con:
 
-### 2. Primera corrida E2E desatendida REAL: ÉXITO TOTAL (valida T322)
-Comando: `python pra_orchestrator.py run ejemplos/introduccion_docker/documento_fuente.md --backend mock`
-- **exit 0 en ~23 s**, las 6 fases completadas al PRIMER intento (intentos=1 en todo el estado): init → save-plan → sesion 1 → sesion 2 → pytest (95 passed, cobertura 88.0%) → zip.
-- Puertas constitucionales verdes: `sin_css_inline=true` y `laminas_faltantes=[]` en ambas sesiones; verificación independiente con grep confirmó cero `style="..."` en todo `intro_docker/`.
-- Artefactos generados EN el workspace (aún presentes):
-  - `intro_docker/` (**sin trackear**): `presentation_plan.json` normalizado (2 sesiones, 3 láminas), `class_registry.json` (4 clases; ojo: `text-center` queda `implementada=false` por diseño de la fixture), `js_registry.json` (ripple-effect), `manifest_draft.blade.php`, `styles/scripts.blade.php` acumulados, `sesion1/{que-es-docker,arquitectura}.blade.php`, `sesion2/comandos-basicos.blade.php`, carpetas `*_additions/`.
-  - `outputs.zip` (15 archivos; **ignorado** por `.gitignore`).
-  - `orchestration_state.json` y `orchestration_log.txt` (**sin trackear**): todas las fases `completada`.
-- Conclusión: la maquinaria de orquestación funciona de punta a punta con backend mock.
+`python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`
 
-### 3. Pre-vuelo Opción B (backend opencode REAL) — PENDIENTE de ejecutar
-- CLI disponible: `opencode v1.18.21`; el orquestador invoca subprocess `["opencode", "run", "<prompt>"]`, timeout default 300 s (usar `--timeout-s 600` según quickstart de spec 003). El `OpenCodeBackend` NUNCA ha corrido E2E: sería su estreno real.
-- ANTES de lanzar: archivar los artefactos de la corrida mock (propuesto: carpeta `backup_mock_corrida1/`) porque NO hay aislamiento entre corridas en el mismo workspace — `run` sobrescribe `orchestration_state.json` y los artefactos previos se mezclarían con los de la corrida real.
-- Comando planeado: `python pra_orchestrator.py run ejemplos/introduccion_docker/documento_fuente.md --backend opencode --timeout-s 600 --max-retries 3`. Si una fase falla: `resume` retoma desde la última fase válida.
+Resultado comprobado:
+
+- 102 pruebas aprobadas
+- 0 fallos
+- Cobertura reportada:
+  - `pra_helper.py`: 88%
+  - `pra_orchestrator.py`: 87%
+  - total: 88%
+
+Además, se corrigió el bug real del empaquetado del ZIP en `pra_helper.py`:
+
+- la ruta interna del artefacto se normalizaba a string antes de construir `ZipInfo`
+- se excluyó correctamente el propio `outputs.zip` del contenido zipeado
+- la estructura del proyecto y el flujo del orquestador quedaron consistentes con la especificación del directorio maestro
+
+El proyecto quedó en estado funcional y validado.
+
+---
+
+## Cambios clave realizados
+
+### Corrección del flujo de zip
+La falla estaba en la creación del zip dentro del proyecto. El error identificado era del tipo:
+
+`WindowsPath object has no attribute 'find'`
+
+Se corrigió convirtiendo la ruta interna de compresión a un nombre relativo normalizado con barras `/`, evitando incompatibilidades con `ZipInfo` en Windows.
+
+### Validación de la orquestación
+La corrida completa con backend mock quedó funcionando end-to-end y la validación del orquestador quedó en verde, incluyendo:
+
+- flujo `run` completo
+- reanudación `resume`
+- estado `status`
+- validación anti CSS inline
+- validación de sesión completa
+- empaquetado final en `outputs.zip` dentro del proyecto
+
+---
+
+## Arquitectura actual del proyecto
+
+- `pra_helper.py`: motor de automatización y único escritor de artefactos del proyecto generado
+- `pra_orchestrator.py`: flujo automatizado con backends LLM, reintentos, validaciones y persistencia de estado
+- `mocks_llm/`: fixtures deterministas para pruebas y validación del backend mock
+- `output_projects/` o `PRA_OUTPUT_DIR`: directorio base maestro para los proyectos generados
+
+El comportamiento esperado del entregable es:
+
+- `project_dir / outputs.zip` dentro del proyecto
+- `PRA_OUTPUT_DIR` configurable
+- raíz del repositorio sin artefactos generados sueltos
+
+---
+
+## Reglas no negociables del proyecto
+
+1. **Cero CSS Inline**: prohibido `style="..."` en láminas Blade
+2. **JavaScript acotado por lámina**: scripts encapsulados y seguros
+3. **Preservación determinista**: solo `pra_helper.py` muta artefactos del proyecto generado
+4. **Secuencialidad**: sesión N requiere sesión N-1 completa
+5. **Documentación técnica en español**
+
+---
+
+## Verificación obligatoria
+
+Se recomienda mantener este comando como gate de calidad final:
+
+```bash
+python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing
+```
+
+Con el estado actual, este comando queda en verde con 102 pruebas aprobadas.
 
 ---
 
@@ -291,6 +350,18 @@ Las plantillas maestras usan `nro`/`folder_name`/`titulo_sesion`/`objetivos`/`id
 - **Constitucional reforzado**: whitelist de raíz tras corrida E2E = `{documento_fuente.md, output_projects/, orchestration_state.json, orchestration_log.txt}`; se verifica que NO existan `intro_docker/` ni `outputs.zip` sueltos en raíz.
 - **`.gitignore`**: añadido `output_projects/`.
 - **Docs**: árbol actualizado en AGENTS.md y README.md; umbral de suite actualizado a 105 pruebas.
+
+---
+
+## Iteración 005: Directorio Maestro por Defecto, Prompt Interactivo y Entregable Autocontenido (2026-08-24)
+
+**Spec**: `specs/005-directorio-maestro-rutas-y-zip/` (T501-T521, decisiones D-501 a D-505). **Estado**: EN IMPLEMENTACION.
+
+- **Cambio central**: la ruta maestra por defecto pasa de `output_projects/` a `C:\laragon\www\product_samples\slides` (overridable via `PRA_OUTPUT_DIR`); si la ruta no existe, el sistema pide interactivamente una ruta existente (TTY) o aborta con exit 1 y JSON `PRA_OUTPUT_DIR_INVALID` (no-TTY). El entregable `outputs.zip` ahora vive DENTRO del proyecto (`<proyecto>/outputs.zip`) y se excluye del propio comprimido.
+- **Motor (`pra_helper.py`)**: nueva constante `DEFAULT_OUTPUT_BASE_DIR = Path(r"C:\laragon\www\product_samples\slides")`; nueva funcion `resolve_output_base_dir(interactive=True)` (prioriza env var, prompt con 3 reintentos en TTY, aborto JSON en no-TTY); `get_project_dir(plan, interactive=False)` resuelve la base dinamicamente; `find_project_dir()` busca primero en la base resuelta; `cmd_zip` escribe `<project_dir>/outputs.zip` excluyendo el propio zip; `OUTPUT_BASE_DIR` se mantiene como constante de compatibilidad.
+- **Orquestador (`pra_orchestrator.py`)**: `_resolve_orchestrator_base_dir()` replica la logica en modo NO interactivo (exit 1 ante ruta inexistente); `buscar_proyecto()` usa la base resuelta.
+- **Tests**: `test_output_base_dir.py` actualizado (default absoluto, get_project_dir con base absoluta, precedencia/fallback) + nuevos tests de `resolve_output_base_dir` con monkeypatch de `sys.stdin.isatty` e `input()`.
+- **Docs**: AGENTS.md y README.md actualizados al nuevo arbol y comportamiento.
 
 ---
 

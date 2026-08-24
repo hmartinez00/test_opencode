@@ -27,7 +27,10 @@ def test_pra_output_dir_redirige_la_creacion_del_proyecto(isolated_dir):
             }
         ],
     }
-    env = {**os.environ, "PRA_OUTPUT_DIR": "custom_out"}
+    # Iteracion 005: se pre-crea el directorio para que la corrida no-interactiva tenga una ruta valida
+    custom_out = isolated_dir / "custom_out"
+    custom_out.mkdir(parents=True)
+    env = {**os.environ, "PRA_OUTPUT_DIR": str(custom_out)}
     script = Path(pra_helper.__file__).resolve()
     proc = subprocess.run(
         [sys.executable, str(script), "save-plan", json.dumps(plan)],
@@ -39,7 +42,5 @@ def test_pra_output_dir_redirige_la_creacion_del_proyecto(isolated_dir):
     assert proc.returncode == 0
     payload = json.loads(proc.stdout.decode("utf-8"))
     assert payload["status"] == "exito"
-    base = isolated_dir / "custom_out"
+    base = custom_out
     assert (base / "demo_curso" / "presentation_plan.json").exists()
-    # El default no se crea cuando hay override
-    assert not (isolated_dir / pra_helper.OUTPUT_BASE_DIR).exists()

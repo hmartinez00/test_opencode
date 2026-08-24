@@ -15,9 +15,9 @@ def test_cli_save_plan_success(run_cli, sample_plan_json_str, isolated_dir):
     assert payload["status"] == "exito"
     assert payload["sesiones_inicializadas"] == 2
 
-    project_dir = isolated_dir / pra_helper.OUTPUT_BASE_DIR / "intro_docker"
-    # Iteracion 004: el proyecto vive bajo el subdirectorio maestro
-    assert Path(payload["proyecto"]).relative_to(isolated_dir) == pra_helper.OUTPUT_BASE_DIR / "intro_docker"
+    project_dir = Path(payload["proyecto"])
+    # Iteracion 005: el proyecto vive bajo OUTPUT_BASE_DIR (resuelta a ruta absoluta en conftest)
+    assert project_dir == pra_helper.OUTPUT_BASE_DIR / "intro_docker"
     assert not (isolated_dir / "intro_docker").exists()
 
     # Plan maestro normalizado
@@ -55,7 +55,8 @@ def test_cli_save_plan_malformed_json(run_cli, isolated_dir):
     assert code == 1
     payload = json.loads(out)
     assert "Error de parseo JSON" in payload["error"]
-    assert list(isolated_dir.iterdir()) == []
+    # Iteracion 005: el conftest crea 'product_samples' en isolated_dir por ser la ruta base configurada
+    assert [p.name for p in isolated_dir.iterdir()] == ["product_samples"]
 
 
 def test_cli_save_plan_schema_errors(run_cli, isolated_dir):
@@ -67,4 +68,4 @@ def test_cli_save_plan_schema_errors(run_cli, isolated_dir):
     payload = json.loads(out)
     assert payload["error"] == "Errores de validacion"
     assert any("carpeta_snake_case" in d for d in payload["detalles"])
-    assert list(isolated_dir.iterdir()) == []
+    assert [p.name for p in isolated_dir.iterdir()] == ["product_samples"]

@@ -15,9 +15,11 @@ import pra_helper
 ENCODING = "utf-8"
 
 @pytest.fixture(autouse=True)
-def salida_maestra_por_defecto(monkeypatch):
-    """Iteracion 004: cada prueba corre con el subdirectorio maestro por defecto."""
-    monkeypatch.delenv("PRA_OUTPUT_DIR", raising=False)
+def salida_maestra_por_defecto(tmp_path, monkeypatch):
+    """Iteracion 005: cada prueba usa un directorio base temporal, pre-creado."""
+    destino = tmp_path / "product_samples" / "slides"
+    destino.mkdir(parents=True)
+    monkeypatch.setenv("PRA_OUTPUT_DIR", str(destino))
 
 @pytest.fixture(autouse=True)
 def isolated_dir(tmp_path, monkeypatch):

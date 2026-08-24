@@ -18,8 +18,8 @@ COBERTURA_FALSA = "pra_helper.py  320  38  90%\n1 failed, 29 passed in 0.5s\n"
 
 ARCHIVOS_RAIZ_PERMITIDOS = {
     "documento_fuente.md",
-    # Iteracion 004: el subdirectorio maestro es la unica carpeta nueva en raiz
-    "output_projects",
+    # Iteracion 005: el subdirectorio maestro por defecto es 'product_samples'
+    "product_samples",
     po.STATE_FILE,
     po.LOG_FILE,
 }
@@ -47,16 +47,17 @@ def entorno(isolated_dir, monkeypatch):
 
 def test_orquestador_no_escribe_nada_fuera_de_su_whitelist(run_orchestrator, entorno, isolated_dir):
     """Constitucion III: toda mutacion de artefactos la ejecuta pra_helper.py.
-    Iteracion 004: la corrida deja en raiz solo el maestro output_projects/."""
+    Iteracion 004/005: la corrida deja en raiz solo el maestro product_samples/."""
     codigo, _ = run_orchestrator("run", "documento_fuente.md", "--backend", "mock")
     assert codigo == 0
 
+    proyecto = isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker"
     presentes = {p.name for p in isolated_dir.iterdir()}
     assert presentes == ARCHIVOS_RAIZ_PERMITIDOS
     assert not (isolated_dir / "outputs.zip").exists()
-    assert (isolated_dir / "output_projects" / "outputs.zip").exists()
+    # Iteracion 005: outputs.zip vive DENTRO del directorio del proyecto, no en la raiz del maestro
+    assert (proyecto / "outputs.zip").exists()
 
-    proyecto = isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker"
     for artefacto in ARTEFACTOS_DEL_MOTOR:
         assert (proyecto / artefacto).exists(), (
             f"Falta el artefacto generado por pra_helper: {artefacto}"
@@ -90,7 +91,9 @@ def test_pytest_fallido_impide_el_empaquetado(run_orchestrator, entorno, isolate
     estado = json.loads((isolated_dir / po.STATE_FILE).read_text(encoding="utf-8"))
     assert estado["fases"]["pytest"]["estado"] == "fallida"
     assert estado["fases"]["zip"]["estado"] == "pendiente"
-    assert not (isolated_dir / po.OUTPUT_BASE_DIR / "outputs.zip").exists()
+    # Iteracion 005: outputs.zip debe estar dentro del proyecto, no en la raiz del maestro
+    proyecto = isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker"
+    assert not (proyecto / "outputs.zip").exists()
     assert not (isolated_dir / "outputs.zip").exists()
 
 
