@@ -9,6 +9,34 @@
 - Para backend real: CLI de OpenCode disponible en modo no interactivo. (No requerido para `--backend mock`).
 - Documento fuente de prueba: `ejemplos/introduccion_docker/documento_fuente.md`.
 
+## Corrida Rapida en 3 Pasos
+
+Desde la raiz del repositorio, ejecutar en PowerShell:
+
+### 1. Configurar el directorio maestro
+
+```powershell
+$env:PRA_OUTPUT_DIR = 'C:\laragon\www\product_samples\slides'
+```
+
+### 2. Ejecutar el flujo completo
+
+```powershell
+python .\pra_orchestrator.py run .\ejemplos\introduccion_docker\documento_fuente.md --backend mock
+```
+
+El proceso ejecuta `init`, `save-plan`, todas las sesiones, `pytest` y `zip` de forma secuencial.
+
+### 3. Verificar el entregable
+
+Comprobar que existe:
+
+```text
+C:\laragon\www\product_samples\slides\intro_docker\outputs.zip
+```
+
+La corrida es correcta cuando termina con codigo de salida `0`, muestra `pytest OK` y `zip OK`, y el archivo `outputs.zip` esta dentro del directorio del proyecto.
+
 ---
 
 ## Escenario 1: Flujo Completo Desatendido con Backend Mock
