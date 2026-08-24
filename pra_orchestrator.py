@@ -116,6 +116,7 @@ def nuevo_estado(documento, backend, max_reintentos):
             "init": _fase_nueva(),
             "save_plan": _fase_nueva(),
             "sesiones": [],
+            "consolidate": _fase_nueva(),
             "pytest": _fase_nueva(),
             "zip": _fase_nueva(),
         },
@@ -644,6 +645,37 @@ class Orquestador:
         print(f"[FASE] pytest: OK (passed={passed}, cobertura={cobertura}%)")
         return EXIT_OK
 
+    # ---------------- Fase: consolidate (T613-T617) ----------------
+    def fase_consolidate(self, estado):
+        fase = estado["fases"]["consolidate"]
+        iniciar_fase(fase)
+        fase["intentos"] = 1
+        guardar_estado(estado)
+        print("[FASE] consolidate: materializando estructura final...")
+        t0 = time.time()
+        codigo, out, err = run_helper("consolidate")
+        detalle = (out.strip() + " " + err.strip()).strip()[:STDERR_MAX_CHARS]
+        if codigo != 0:
+            fallar_fase(fase, detalle or f"Codigo {codigo} del motor")
+            guardar_estado(estado)
+            self._log_intento("consolidate", 1, False, detalle, t0)
+            print(f"[FASE] consolidate: FALLO -> {detalle}")
+            return EXIT_VALIDACION
+        reporte = extraer_json(out) or {}
+        if not reporte.get("ok"):
+            detalle = "; ".join(reporte.get("errores", [])) or "Reporte de consolidacion invalido"
+            fallar_fase(fase, detalle)
+            guardar_estado(estado)
+            self._log_intento("consolidate", 1, False, detalle, t0)
+            print(f"[FASE] consolidate: FALLO -> {detalle}")
+            return EXIT_VALIDACION
+        fase["validaciones"] = reporte
+        completar_fase(fase)
+        guardar_estado(estado)
+        self._log_intento("consolidate", 1, True, "", t0)
+        print(f"[FASE] consolidate: OK (laminas={reporte.get('laminas_materializadas', 0)})")
+        return EXIT_OK
+
     # ---------------- Fase: zip (empaquetado) - T312 ----------------
     def fase_zip(self, estado):
         fase = estado["fases"]["zip"]
@@ -698,6 +730,10 @@ class Orquestador:
                 rc = self.fase_session(estado, n)
                 if rc != EXIT_OK:
                     return rc
+        if fases["consolidate"]["estado"] != ESTADO_COMPLETADA:
+            rc = self.fase_consolidate(estado)
+            if rc != EXIT_OK:
+                return rc
         if fases["pytest"]["estado"] != ESTADO_COMPLETADA:
             rc = self.fase_pytest(estado)
             if rc != EXIT_OK:
@@ -801,7 +837,7 @@ def cmd_status(args):
         print(f"{nombre:<14}{fase['estado']:<14}{fase['intentos']}")
     for s in sorted(fases["sesiones"], key=lambda x: x["numero"]):
         print(f"{'sesion ' + str(s['numero']):<14}{s['estado']:<14}{s['intentos']}")
-    for nombre in ("pytest", "zip"):
+    for nombre in ("consolidate", "pytest", "zip"):
         fase = fases[nombre]
         print(f"{nombre:<14}{fase['estado']:<14}{fase['intentos']}")
     return EXIT_OK

@@ -80,6 +80,10 @@ C:\laragon\www\test_opencode\
         ├── manifest_additions/         <-- Fragmentos de <x-slide> generados por sesion
         └── sesion[N]/                  <-- Subcarpetas que contienen los archivos .blade.php de cada lamina
             └── [slide-id-kebab-case].blade.php
+        ├── manifest.blade.php          <-- Manifest final consolidado
+        ├── global/                     <-- Vistas compartidas consolidadas
+        ├── session[N]/                 <-- Vistas finales por sesion
+        └── assets/                     <-- Entry points y fragmentos CSS/JS finales
 ```
 
 ---
@@ -125,11 +129,16 @@ Cuando el usuario solicite acciones sobre el flujo PRA, el agente que intervenga
 4. Tomar la respuesta completa del LLM y pasarla a `python pra_helper.py process-session <N> '<respuesta_llm>'`.
 5. Confirmar al usuario los archivos Blade creados y los nuevos estilos/scripts agregados.
 
+### Fase de Consolidacion (`python pra_helper.py consolidate`):
+1. Leer el plan y los artefactos internos de todas las sesiones completadas.
+2. Generar `manifest.blade.php`, `global/`, `session[N]/` y `assets/` sin duplicados ni CSS inline.
+3. Validar referencias Blade y entry points antes de permitir el empaquetado.
+
 ### Fase de Cierre (`@pra empaquetar`):
 1. Invocar `python pra_helper.py zip` para comprimir el proyecto y dejarlo listo para su descarga e integracion en Laravel.
 
 ### Fase de Orquestacion Desatendida (`@pra automatizar`, iteracion 003):
-Alternativa a las fases manuales anteriores: `pra_orchestrator.py` ejecuta el flujo completo (init -> save-plan -> sesiones -> pytest -> zip) delegando TODA mutacion de artefactos en los comandos CLI de `pra_helper.py` via subprocess.
+Alternativa a las fases manuales anteriores: `pra_orchestrator.py` ejecuta el flujo completo (init -> save-plan -> sesiones -> consolidate -> pytest -> zip) delegando TODA mutacion de artefactos en los comandos CLI de `pra_helper.py` via subprocess.
 1. Corrida desatendida: `python pra_orchestrator.py run <documento> [--backend mock|opencode] [--max-retries N]`.
 2. Reanudacion e inspeccion: `python pra_orchestrator.py resume` / `python pra_orchestrator.py status`.
 3. El orquestador aplica puertas constitucionales por sesion (exit code, regex anti CSS inline, laminas completas) y un bucle de reintentos con prompt de reflexion de error; exige suite verde + cobertura >= 85% antes de empaquetar.

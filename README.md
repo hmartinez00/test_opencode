@@ -9,6 +9,7 @@ El sistema opera bajo el principio de **Plan Maestro + Construcción Progresiva 
 1. **Plan Maestro**: Se analiza un documento fuente y se genera un plan estructurado en JSON que define la presentación completa.
 2. **Construcción por Sesiones**: Cada sesión se construye de forma secuencial, generando laminas Blade individuales con sus estilos y scripts asociados.
 3. **Empaquetado**: Las sesiones completadas se comprimen en un archivo ZIP listo para integración en Laravel.
+4. **Consolidacion**: Antes del empaquetado, los artefactos internos se convierten en una estructura final con `manifest.blade.php`, `global/`, `sessionN/` y `assets/`.
 
 ## Estructura del Proyecto
 
@@ -84,6 +85,11 @@ test_opencode/
 │   │   └── cli-contract-v3-deltas.md # Deltas de contrato CLI (rutas, stdin y zip)
 │   └── checklists/
 │       └── requirements.md
+├── specs/006-consolidacion-estructura-presentaciones/ # Consolidacion de salida Laravel
+│   ├── spec.md
+│   ├── plan.md
+│   ├── tasks.md
+│   └── contracts/consolidation-contract.md
 ├── [Ruta configurada en PRA_OUTPUT_DIR]/   # Subdirectorio maestro (default: C:\laragon\www\product_samples\slides)
 │   └── <carpeta_snake_case>/       # Proyectos generados por el flujo PRA
 │       └── outputs.zip             # Entregable empaquetado (pra_helper.py zip)
@@ -174,6 +180,7 @@ Características clave:
 - **Puertas constitucionales**: valida exit code, ausencia de CSS inline y completitud de láminas tras cada sesión; exige suite verde y cobertura ≥ 85% antes de empaquetar.
 - **Estado reanudable**: persistencia atómica en `orchestration_state.json`; auditoría en `orchestration_log.txt`. Ambos quedan fuera de `outputs.zip`.
 - **Subdirectorio maestro**: todo proyecto generado se aloja en `C:\laragon\www\product_samples\slides` (configurable via variable de entorno `PRA_OUTPUT_DIR`); la raíz del repositorio permanece limpia.
+- **Consolidacion final**: genera `manifest.blade.php`, vistas bajo `global/` y `sessionN/`, y entrypoints de assets bajo `assets/` antes de empaquetar.
 - **Códigos de salida**: `0` éxito | `1` validación incumplida | `2` estado/secuencialidad | `3` backend no disponible | `4` uso incorrecto.
 
 ## Uso
@@ -200,7 +207,10 @@ python pra_helper.py process-session 1 "respuesta_completa_del_llm..."
 
 # 4. Repetir paso 3 para cada sesión
 
-# 5. Empaquetar proyecto final
+# 5. Consolidar estructura final Laravel
+python pra_helper.py consolidate
+
+# 6. Empaquetar proyecto final
 python pra_helper.py zip
 ```
 
@@ -212,6 +222,7 @@ python pra_helper.py zip
 | `save-plan <json>` | Guarda plan maestro, inicializa registros y crea estructura |
 | `prompt-session <N>` | Compila prompt adaptado para la generación de laminas de la sesión N |
 | `process-session <N> <r>` | Procesa respuesta del LLM y escribe archivos Blade |
+| `consolidate` | Consolida manifest, vistas y assets en la estructura final Laravel |
 | `zip` | Empaqueta el proyecto en `<directorio_proyecto>/outputs.zip` |
 
 > **Nota (iteración 005)**: los proyectos generados se crean bajo el subdirectorio maestro `C:\laragon\www\product_samples\slides`. La variable de entorno `PRA_OUTPUT_DIR` permite usar otra ruta; si la ruta configurada no existe, el sistema solicita interactivamente una ruta existente (en entornos no interactivos aborta con código 1). La búsqueda del proyecto activo prioriza ese subdirectorio y aplica un fallback sobre la raíz para proyectos legacy anteriores a esta iteración.

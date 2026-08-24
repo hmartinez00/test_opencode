@@ -19,6 +19,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import sys
 import zipfile
 from pathlib import Path
@@ -692,6 +693,125 @@ def cmd_process_session(args):
 
 
 # ============================================================
+# Comando: --consolidate (T605-T612)
+# ============================================================
+
+def _consolidate_project(project_dir):
+    """Materializa la estructura final Laravel a partir del estado PRA."""
+    plan = load_json(project_dir / "presentation_plan.json")
+    final_sessions = []
+    references = set()
+    errors = []
+
+    for sesion in sorted(plan.get("sesiones", []), key=lambda item: item.get("numero", 0)):
+        number = sesion.get("numero", 0)
+        source_dir = project_dir / f"sesion{number}"
+        target_dir = project_dir / f"session{number}"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        slides = []
+        for lamina in sorted(sesion.get("laminas", []), key=lambda item: item.get("orden", 0)):
+            slide_id = lamina.get("id_kebab_case") or lamina.get("id", "")
+            source = source_dir / f"{slide_id}.blade.php"
+            target = target_dir / source.name
+            if not source.exists():
+                errors.append(f"Lamina inexistente: sesion{number}/{slide_id}.blade.php")
+                continue
+            content = source.read_text(encoding=ENCODING, errors="replace")
+            valid, message = validate_no_inline_css(content, slide_id)
+            if not valid:
+                errors.append(message)
+                continue
+            shutil.copyfile(source, target)
+            identity = (number, slide_id)
+            if identity in references:
+                errors.append(f"Lamina duplicada: session{number}.{slide_id}")
+                continue
+            references.add(identity)
+            data_title = lamina.get("data_title") or lamina.get("titulo") or slide_id
+            slides.append((slide_id, data_title))
+        final_sessions.append((number, sesion.get("titulo", ""), slides))
+
+    assets_dir = project_dir / "assets"
+    css_dir = assets_dir / "styles_blade" / "css"
+    js_dir = assets_dir / "styles_blade" / "js"
+    css_dir.mkdir(parents=True, exist_ok=True)
+    js_dir.mkdir(parents=True, exist_ok=True)
+
+    css_includes = []
+    for addition in sorted((project_dir / "styles_additions").glob("sesion*_styles.css")):
+        target = css_dir / f"{addition.stem}.blade.php"
+        target.write_text(addition.read_text(encoding=ENCODING), encoding=ENCODING)
+        css_includes.append(target.relative_to(project_dir).as_posix().removesuffix(".blade.php").replace("/", "."))
+    js_includes = []
+    for addition in sorted((project_dir / "scripts_additions").glob("sesion*_scripts.js")):
+        target = js_dir / f"{addition.stem}.blade.php"
+        target.write_text(addition.read_text(encoding=ENCODING), encoding=ENCODING)
+        js_includes.append(target.relative_to(project_dir).as_posix().removesuffix(".blade.php").replace("/", "."))
+
+    styles_entry = ["{{-- Estilos consolidados - Generado por PRA --}}"]
+    styles_entry.extend(f'@include("presentation.slides.{{{{$presentation->folder_name}}}}.{include}")' for include in css_includes)
+    (assets_dir / "styles.blade.php").write_text("\n".join(styles_entry) + "\n", encoding=ENCODING)
+    scripts_entry = ["{{-- Scripts consolidados - Generado por PRA --}}"]
+    scripts_entry.extend(f'@include("presentation.slides.{{{{$presentation->folder_name}}}}.{include}")' for include in js_includes)
+    (assets_dir / "scripts.blade.php").write_text("\n".join(scripts_entry) + "\n", encoding=ENCODING)
+
+    manifest = [
+        "{{-- Manifest de Presentacion - Generado por PRA --}}",
+        "@extends('layouts.reveal')",
+        "",
+        "@section('title', $presentation->title)",
+        "",
+        "@section('slides')",
+    ]
+    for number, title, slides in final_sessions:
+        manifest.extend([
+            f"    {{{{-- Sesion {number}: {title} --}}}}",
+            f'    <section data-title="{title}" data-session="session{number}">',
+        ])
+        for slide_id, data_title in slides:
+            manifest.append(f'        <x-slide view="session{number}.{slide_id}" data-title="{data_title}" />')
+        manifest.extend(["    </section>", ""])
+    manifest.extend([
+        "@endsection",
+        "",
+        "@push('styles')",
+        '    @include("presentation.slides.{{$presentation->folder_name}}.assets.styles")',
+        "@endpush",
+        "",
+        "@push('scripts')",
+        '    @include("presentation.slides.{{$presentation->folder_name}}.assets.scripts")',
+        "@endpush",
+        "",
+    ])
+    (project_dir / "manifest.blade.php").write_text("\n".join(manifest), encoding=ENCODING)
+
+    return {
+        "ok": not errors,
+        "manifest": "manifest.blade.php",
+        "sesiones": [number for number, _, _ in final_sessions],
+        "laminas_materializadas": sum(len(slides) for _, _, slides in final_sessions),
+        "includes_css": len(css_includes),
+        "includes_js": len(js_includes),
+        "errores": errors,
+    }
+
+
+def cmd_consolidate(args):
+    """Consolida los artefactos internos en la estructura final."""
+    project_dir = find_project_dir()
+    if not project_dir:
+        print(json.dumps({"error": "No se encontro directorio de proyecto"}))
+        sys.exit(1)
+    try:
+        report = _consolidate_project(project_dir)
+    except (OSError, json.JSONDecodeError) as error:
+        print(json.dumps({"ok": False, "errores": [str(error)]}, ensure_ascii=False))
+        sys.exit(2)
+    print(json.dumps(report, ensure_ascii=False, indent=JSON_INDENT))
+    sys.exit(0 if report["ok"] else 2)
+
+
+# ============================================================
 # Comando: --zip (T017)
 # ============================================================
 
@@ -782,6 +902,7 @@ def main():
     process_parser.add_argument("n", type=int, help="Numero de sesion")
     process_parser.add_argument("respuesta_llm", help="Respuesta completa del LLM")
 
+    subparsers.add_parser("consolidate")
     subparsers.add_parser("zip")
 
     args = parser.parse_args()
@@ -794,6 +915,8 @@ def main():
         cmd_prompt_session(args)
     elif args.comando == "process-session":
         cmd_process_session(args)
+    elif args.comando == "consolidate":
+        cmd_consolidate(args)
     elif args.comando == "zip":
         cmd_zip(args)
     else:

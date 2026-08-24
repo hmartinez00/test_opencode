@@ -3,7 +3,7 @@
 > **Fecha de verificación:** 2026-08-24  
 > **Estado actual:** proyecto validado con suite completa en verde  
 > **Rama de trabajo:** `main`  
-> **Resultado verificado:** 102 pruebas aprobadas, cobertura final 88%/87%
+> **Resultado verificado:** 103 pruebas aprobadas, cobertura final 88%/86%
 
 ---
 
@@ -11,7 +11,7 @@
 
 Sistema **Presentation Automator (PRA v1.0)**: automatizar la generación modular y progresiva de presentaciones **Reveal.js** empaquetadas en plantillas **Blade** para Laravel, usando la metodología Speckit.
 
-**Filosofía:** Plan Maestro → Construcción Progresiva por Sesiones → Empaquetado final.
+**Filosofía:** Plan Maestro → Construcción Progresiva por Sesiones → Consolidación → Empaquetado final.
 
 ---
 
@@ -23,11 +23,11 @@ Se ejecutó la validación completa del repositorio con:
 
 Resultado comprobado:
 
-- 102 pruebas aprobadas
+- 103 pruebas aprobadas
 - 0 fallos
 - Cobertura reportada:
   - `pra_helper.py`: 88%
-  - `pra_orchestrator.py`: 87%
+  - `pra_orchestrator.py`: 86%
   - total: 88%
 
 Además, se corrigió el bug real del empaquetado del ZIP en `pra_helper.py`:
@@ -94,7 +94,7 @@ Se recomienda mantener este comando como gate de calidad final:
 python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing
 ```
 
-Con el estado actual, este comando queda en verde con 102 pruebas aprobadas.
+Con el estado actual, este comando queda en verde con 103 pruebas aprobadas.
 
 ---
 

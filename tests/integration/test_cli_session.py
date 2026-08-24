@@ -9,7 +9,7 @@ from pra_helper import load_json
 def initialized_project(run_cli, sample_plan_json_str):
     """Fixture que inicializa un proyecto valido ejecutando save-plan."""
     code, _ = run_cli("save-plan", sample_plan_json_str)
-    assert code == 0
+    assert code == 0, out
 
 
 def test_cli_prompt_session_success(run_cli, initialized_project):
@@ -92,3 +92,35 @@ def test_cli_process_session_sequentiality_blocked(run_cli, initialized_project,
     assert code == 2
     payload = json.loads(out)
     assert "no completada" in payload["error"]
+
+
+def test_cli_consolidate_creates_final_structure(run_cli, sample_plan_json_str, sample_llm_response_s1, isolated_dir):
+    """consolidate debe materializar la estructura final Laravel sin duplicados."""
+    plan = json.loads(sample_plan_json_str)
+    plan["sesiones"] = plan["sesiones"][:1]
+    assert run_cli("save-plan", json.dumps(plan, ensure_ascii=False))[0] == 0
+    assert run_cli("process-session", "1", sample_llm_response_s1)[0] == 0
+
+    code, out = run_cli("consolidate")
+
+    assert code == 0
+    payload = json.loads(out)
+    assert payload["ok"] is True
+    project_dir = isolated_dir / pra_helper.OUTPUT_BASE_DIR / "intro_docker"
+    manifest = project_dir / "manifest.blade.php"
+    styles = project_dir / "assets" / "styles.blade.php"
+    scripts = project_dir / "assets" / "scripts.blade.php"
+    assert manifest.exists()
+    assert styles.exists()
+    assert scripts.exists()
+    manifest_content = manifest.read_text(encoding="utf-8")
+    assert "@extends('layouts.reveal')" in manifest_content
+    assert "session1.que-es-docker" in manifest_content
+    assert "sesion1." not in manifest_content
+    assert (project_dir / "session1" / "que-es-docker.blade.php").exists()
+    assert (project_dir / "assets" / "styles_blade" / "css" / "sesion1_styles.blade.php").exists()
+    assert (project_dir / "assets" / "styles_blade" / "js" / "sesion1_scripts.blade.php").exists()
+
+    code, second_out = run_cli("consolidate")
+    assert code == 0
+    assert json.loads(second_out)["laminas_materializadas"] == 2
