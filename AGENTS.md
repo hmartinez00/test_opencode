@@ -103,7 +103,7 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
 * **Subdirectorio maestro (iteracion 004):** Todo proyecto generado se aloja bajo `output_projects/` (overridable via variable de entorno `PRA_OUTPUT_DIR`); el entregable `outputs.zip` tambien se genera dentro de ese subdirectorio. La raiz del repositorio debe permanecer limpia. Detalles: `specs/004-subdirectorio-maestro-proyectos-pra/`.
 
 ### Garantia de Calidad (Suite de Pruebas):
-* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (105 pruebas aprobadas) antes de dar por terminada la tarea. Ejecutar: `pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
+* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (105 pruebas aprobadas) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
 * **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%.
 * **Nuevas funcionalidades requieren nuevas pruebas:** Todo cambio o feature en el motor o el orquestador debe incluir pruebas unitarias, de integracion o constitucionales segun corresponda, siguiendo la especificacion de `specs/002-sistema-testing-pra/`.
 
@@ -136,7 +136,7 @@ Alternativa a las fases manuales anteriores: `pra_orchestrator.py` ejecuta el fl
 4. Sus unicos artefactos de escritura propios son `orchestration_state.json` y `orchestration_log.txt` (excluidos del zip). Contrato completo: `specs/003-orquestador-automatizado-pra/contracts/orchestrator-contract.md`.
 
 ### Fase de Verificacion (obligatoria tras cualquier cambio en el motor):
-1. Ejecutar la suite completa: `pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
+1. Ejecutar la suite completa: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
 2. Verificar que las 105 pruebas pasen y que la cobertura de `pra_helper.py` y `pra_orchestrator.py` sea >= 85%.
 3. Si se agregaron funcionalidades nuevas, incorporar las pruebas correspondientes antes de cerrar la tarea.
 

@@ -119,16 +119,17 @@ python -m pip install pytest pytest-cov
 El proyecto cuenta con una suite de pruebas automatizadas basada en **pytest** (105 pruebas: motor + orquestador, cobertura de `pra_helper.py` y `pra_orchestrator.py` ≥ 85%):
 
 ```bash
-# Suite completa
-pytest
+# Suite completa (invocar siempre via python -m pytest; el ejecutable pytest.exe
+# dispara falsos positivos en algunos antivirus)
+python -m pytest
 
 # Suite con reporte de cobertura
-pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing
+python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing
 
 # Por categorías
-pytest tests/unit/            # Pruebas unitarias del motor y del orquestador
-pytest tests/integration/     # Pruebas de integración CLI
-pytest tests/constitutional/  # Pruebas de reglas constitucionales
+python -m pytest tests/unit/            # Pruebas unitarias del motor y del orquestador
+python -m pytest tests/integration/     # Pruebas de integración CLI
+python -m pytest tests/constitutional/  # Pruebas de reglas constitucionales
 ```
 
 Las pruebas se ejecutan en directorios temporales aislados (`tmp_path`) y no modifican el workspace. Ver `specs/002-sistema-testing-pra/quickstart.md` para la guía completa.

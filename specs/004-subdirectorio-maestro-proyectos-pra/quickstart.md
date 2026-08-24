@@ -7,7 +7,7 @@
 ## Escenario 1: Suite de calidad (obligatorio)
 
 ```bash
-pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing
+python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing
 ```
 
 Esperado: todas las pruebas en verde (95 previas + nuevas), cobertura >= 85% en `pra_helper.py` y `pra_orchestrator.py`.

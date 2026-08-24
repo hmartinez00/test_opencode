@@ -57,7 +57,7 @@ Este plan aísla todos los proyectos de presentacion generados en un subdirector
 - Cobertura: `pra_helper.py` >= 85% y `pra_orchestrator.py` >= 85% (sin regresion).
 - Comando de verificacion:
 ```bash
-pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing
+python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing
 ```
 - E2E mock: corrida completa deja el arbol SOLO bajo `output_projects/` y la raiz sin carpetas de proyecto ni `outputs.zip`.
 
