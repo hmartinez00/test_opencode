@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import pytest
+import pra_helper
 from pra_helper import load_json
 
 
@@ -48,7 +49,7 @@ def test_cli_process_session_success(run_cli, initialized_project, sample_llm_re
     assert payload["laminas_escritas"] == 2
     assert payload["violaciones_css_inline"] == 0
 
-    project_dir = isolated_dir / "intro_docker"
+    project_dir = isolated_dir / pra_helper.OUTPUT_BASE_DIR / "intro_docker"
 
     # Laminas Blade escritas
     lamina_1 = project_dir / "sesion1" / "que-es-docker.blade.php"

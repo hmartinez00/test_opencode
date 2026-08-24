@@ -2,6 +2,8 @@
 import json
 import zipfile
 
+import pra_helper
+
 
 def test_cli_zip_without_project(run_cli):
     """zip sin proyecto activo debe fallar con codigo 1."""
@@ -34,8 +36,10 @@ def test_cli_zip_success(run_cli, sample_plan_json_str, sample_llm_response_s1, 
     payload = json.loads(out)
     assert payload["status"] == "exito"
 
-    zip_path = isolated_dir / "outputs.zip"
+    zip_path = isolated_dir / pra_helper.OUTPUT_BASE_DIR / "outputs.zip"
     assert zip_path.exists()
+    # Iteracion 004: la raiz queda limpia, sin entregables sueltos
+    assert not (isolated_dir / "outputs.zip").exists()
     assert payload["tamano_bytes"] > 0
 
     with zipfile.ZipFile(zip_path) as zf:

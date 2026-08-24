@@ -79,7 +79,7 @@ def test_reintento_contaminada_luego_valida(run_orchestrator, entorno, isolated_
     assert "resultado=FALLO" in log
     assert "Cero CSS Inline" in log
     # La lamina corregida quedo escrita sin CSS inline
-    lamina = isolated_dir / "intro_docker" / "sesion1" / "que-es-docker.blade.php"
+    lamina = isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker" / "sesion1" / "que-es-docker.blade.php"
     assert 'style="' not in lamina.read_text(encoding="utf-8")
 
 
@@ -99,6 +99,7 @@ def test_agotamiento_reintentos_aborta_con_codigo_1(run_orchestrator, entorno, i
     assert sesion1["estado"] == "fallida"
     assert sesion1["intentos"] == 3
     assert estado["fases"]["zip"]["estado"] == "pendiente"
+    assert not (isolated_dir / po.OUTPUT_BASE_DIR / "outputs.zip").exists()
     assert not (isolated_dir / "outputs.zip").exists()
 
 
@@ -124,7 +125,7 @@ def test_reanudar_tras_agotamiento_completa_la_corrida(run_orchestrator, entorno
     )
     codigo, _ = run_orchestrator("resume")
     assert codigo == 0
-    assert (isolated_dir / "intro_docker" / "sesion2" / "comandos-basicos.blade.php").exists()
+    assert (isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker" / "sesion2" / "comandos-basicos.blade.php").exists()
 
 
 def test_backend_no_disponible_aborta_con_codigo_3(run_orchestrator, entorno, monkeypatch):

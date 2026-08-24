@@ -50,12 +50,12 @@ def sembrar_estado_con_sesion1_completada(isolated_dir):
 def test_resume_continua_desde_sesion2_sin_reprocesar_la_1(run_orchestrator, entorno, isolated_dir):
     construir_proyecto_hasta_sesion1(entorno, isolated_dir)
     sembrar_estado_con_sesion1_completada(isolated_dir)
-    styles_antes = (isolated_dir / "intro_docker" / "styles.blade.php").read_text(encoding="utf-8")
+    styles_antes = (isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker" / "styles.blade.php").read_text(encoding="utf-8")
 
     codigo, salida = run_orchestrator("resume")
 
     assert codigo == 0
-    proyecto = isolated_dir / "intro_docker"
+    proyecto = isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker"
     # Sesion 2 generada; sesion 1 intacta (CSS no duplicado)
     assert (proyecto / "sesion2" / "comandos-basicos.blade.php").exists()
     styles_despues = (proyecto / "styles.blade.php").read_text(encoding="utf-8")

@@ -7,10 +7,10 @@ import pra_orchestrator as po
 
 
 def crear_proyecto(isolated_dir, laminas=None, contenidos=None, plan_valido=True):
-    """Crea un arbol minimo de proyecto PRA para validar puertas post-sesion."""
+    """Crea un arbol minimo de proyecto PRA bajo el subdirectorio maestro."""
     laminas = laminas if laminas is not None else ["que-es-docker", "arquitectura"]
     contenidos = contenidos or {}
-    proyecto = isolated_dir / "intro_docker"
+    proyecto = isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker"
     sesion_dir = proyecto / "sesion1"
     sesion_dir.mkdir(parents=True)
     plan = {

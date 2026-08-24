@@ -65,18 +65,21 @@ C:\laragon\www\test_opencode\
 ├── ejemplos/
 │   └── introduccion_docker/
 │       └── documento_fuente.md     <-- Documento fuente de prueba para validar el flujo completo
-└── [nombre_proyecto_snake_case]/   <-- Directorio generado del proyecto activo
-    ├── presentation_plan.json      <-- Plan maestro normalizado
-    ├── class_registry.json         <-- Registro vivo de clases CSS implementadas
-    ├── js_registry.json            <-- Registro vivo de comportamientos JavaScript implementados
-    ├── manifest_draft.blade.php    <-- Estructura de integracion Laravel inicial
-    ├── styles.blade.php            <-- Estilos globales acumulados del proyecto
-    ├── scripts.blade.php           <-- Scripts interactivos acumulados del proyecto
-    ├── styles_additions/           <-- Estilos aislados respaldados por sesion
-    ├── scripts_additions/          <-- Scripts aislados respaldados por sesion
-    ├── manifest_additions/         <-- Fragmentos de <x-slide> generados por sesion
-    └── sesion[N]/                  <-- Subcarpetas que contienen los archivos .blade.php de cada lamina
-        └── [slide-id-kebab-case].blade.php
+└── output_projects/                <-- Subdirectorio maestro de proyectos generados (iteracion 004;
+    |                                    overridable via variable de entorno PRA_OUTPUT_DIR)
+    ├── outputs.zip                 <-- Entregable empaquetado (generado por `pra_helper.py zip`)
+    └── [nombre_proyecto_snake_case]/   <-- Directorio generado del proyecto activo
+        ├── presentation_plan.json      <-- Plan maestro normalizado
+        ├── class_registry.json         <-- Registro vivo de clases CSS implementadas
+        ├── js_registry.json            <-- Registro vivo de comportamientos JavaScript implementados
+        ├── manifest_draft.blade.php    <-- Estructura de integracion Laravel inicial
+        ├── styles.blade.php            <-- Estilos globales acumulados del proyecto
+        ├── scripts.blade.php           <-- Scripts interactivos acumulados del proyecto
+        ├── styles_additions/           <-- Estilos aislados respaldados por sesion
+        ├── scripts_additions/          <-- Scripts aislados respaldados por sesion
+        ├── manifest_additions/         <-- Fragmentos de <x-slide> generados por sesion
+        └── sesion[N]/                  <-- Subcarpetas que contienen los archivos .blade.php de cada lamina
+            └── [slide-id-kebab-case].blade.php
 ```
 
 ---
@@ -97,9 +100,10 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
 ### Preservacion del Estado (Fuente de Verdad):
 * **No escribir directamente en registries ni combinar archivos Blade manualmente:** Los agentes deben invocar siempre el script `pra_helper.py` con los argumentos apropiados para delegar la creacion y actualizacion del proyecto. Esto asegura que la logica regex y de fusion de JSONs sea 100% precisa y determinista.
 * **Respetar el orden secuencial:** No se puede construir la Sesion $N$ si la Sesion $N-1$ no ha sido completada y sus cambios integrados con exito.
+* **Subdirectorio maestro (iteracion 004):** Todo proyecto generado se aloja bajo `output_projects/` (overridable via variable de entorno `PRA_OUTPUT_DIR`); el entregable `outputs.zip` tambien se genera dentro de ese subdirectorio. La raiz del repositorio debe permanecer limpia. Detalles: `specs/004-subdirectorio-maestro-proyectos-pra/`.
 
 ### Garantia de Calidad (Suite de Pruebas):
-* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (95 pruebas aprobadas) antes de dar por terminada la tarea. Ejecutar: `pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
+* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (105 pruebas aprobadas) antes de dar por terminada la tarea. Ejecutar: `pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
 * **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%.
 * **Nuevas funcionalidades requieren nuevas pruebas:** Todo cambio o feature en el motor o el orquestador debe incluir pruebas unitarias, de integracion o constitucionales segun corresponda, siguiendo la especificacion de `specs/002-sistema-testing-pra/`.
 
@@ -133,7 +137,7 @@ Alternativa a las fases manuales anteriores: `pra_orchestrator.py` ejecuta el fl
 
 ### Fase de Verificacion (obligatoria tras cualquier cambio en el motor):
 1. Ejecutar la suite completa: `pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
-2. Verificar que las 95 pruebas pasen y que la cobertura de `pra_helper.py` y `pra_orchestrator.py` sea >= 85%.
+2. Verificar que las 105 pruebas pasen y que la cobertura de `pra_helper.py` y `pra_orchestrator.py` sea >= 85%.
 3. Si se agregaron funcionalidades nuevas, incorporar las pruebas correspondientes antes de cerrar la tarea.
 
 ---
@@ -158,6 +162,7 @@ El script `pra_helper.py` normaliza automaticamente los campos del plan maestro 
 * Las especificaciones completas del sistema se encuentran en `specs/001-sistema-automatizacion-presentaciones-pra/`.
 * La especificacion del sistema de testing y su guia de ejecucion se encuentran en `specs/002-sistema-testing-pra/`.
 * La especificacion del orquestador automatico y su contrato CLI se encuentran en `specs/003-orquestador-automatizado-pra/`.
+* La especificacion del subdirectorio maestro de proyectos generados se encuentra en `specs/004-subdirectorio-maestro-proyectos-pra/`.
 
 ---
 

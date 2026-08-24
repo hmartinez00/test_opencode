@@ -6,9 +6,18 @@ from unittest import mock
 import pytest
 from pathlib import Path
 
+# Iteracion 004: los modulos resuelven OUTPUT_BASE_DIR al importar; se limpia
+# la variable ANTES de importar para garantizar el default en toda la suite.
+os.environ.pop("PRA_OUTPUT_DIR", None)
+
 import pra_helper
 
 ENCODING = "utf-8"
+
+@pytest.fixture(autouse=True)
+def salida_maestra_por_defecto(monkeypatch):
+    """Iteracion 004: cada prueba corre con el subdirectorio maestro por defecto."""
+    monkeypatch.delenv("PRA_OUTPUT_DIR", raising=False)
 
 @pytest.fixture(autouse=True)
 def isolated_dir(tmp_path, monkeypatch):

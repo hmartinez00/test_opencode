@@ -30,6 +30,9 @@ KEBAB_PATTERN = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 FOLDER_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 INLINE_STYLE_PATTERN = re.compile(r'style\s*=\s*["\']')
 REGISTRY_CLASS_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+# Subdirectorio maestro que aloja todos los proyectos generados (iteracion 004).
+# Overridable via variable de entorno PRA_OUTPUT_DIR.
+OUTPUT_BASE_DIR = Path(os.environ.get("PRA_OUTPUT_DIR", "output_projects"))
 
 
 # ============================================================
@@ -160,9 +163,9 @@ def normalize_plan(plan):
 
 
 def get_project_dir(plan):
-    """Retorna el Path del directorio del proyecto segun el plan."""
+    """Retorna el Path del directorio del proyecto segun el plan (bajo OUTPUT_BASE_DIR)."""
     folder = plan.get("carpeta_snake_case") or plan.get("folder_name", "")
-    return Path.cwd() / folder
+    return Path.cwd() / OUTPUT_BASE_DIR / folder
 
 
 # ============================================================
@@ -305,11 +308,18 @@ def cmd_save_plan(args):
 # ============================================================
 
 def find_project_dir():
-    """Busca el directorio del proyecto activo buscando presentation_plan.json."""
+    """Busca el directorio del proyecto activo buscando presentation_plan.json.
+    Prioriza el subdirectorio maestro (OUTPUT_BASE_DIR); si no hay proyectos
+    alli, aplica fallback sobre la raiz para proyectos legacy (iteracion 004)."""
     cwd = Path.cwd()
-    for item in cwd.iterdir():
-        if item.is_dir() and (item / "presentation_plan.json").exists():
-            return item
+    base = cwd / OUTPUT_BASE_DIR
+    scopes = [base] if base == cwd else [base, cwd]
+    for scope in scopes:
+        if not scope.is_dir():
+            continue
+        for item in sorted(scope.iterdir()):
+            if item.is_dir() and (item / "presentation_plan.json").exists():
+                return item
     return None
 
 
@@ -654,7 +664,8 @@ def cmd_zip(args):
         print(json.dumps({"error": "No hay sesiones completadas para empaquetar"}))
         sys.exit(1)
 
-    zip_path = Path.cwd() / "outputs.zip"
+    zip_path = Path.cwd() / OUTPUT_BASE_DIR / "outputs.zip"
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for root, dirs, files in os.walk(project_dir):

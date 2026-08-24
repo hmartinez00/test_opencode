@@ -3,6 +3,8 @@
 import json
 import pytest
 
+import pra_helper
+
 
 @pytest.fixture
 def initialized_project(run_cli, sample_plan_json_str):
@@ -20,7 +22,7 @@ def test_constitucion_I_cero_css_inline_rechazado(run_cli, initialized_project, 
     assert "Cero CSS Inline" in payload["error"]
     assert len(payload["violaciones"]) >= 1
 
-    project_dir = isolated_dir / "intro_docker"
+    project_dir = isolated_dir / pra_helper.OUTPUT_BASE_DIR / "intro_docker"
     laminas = list((project_dir / "sesion1").glob("*.blade.php"))
     assert laminas == []
 
@@ -61,6 +63,6 @@ def test_laminas_validas_no_contienen_css_inline(run_cli, initialized_project, s
     """Regla I (positiva): las laminas generadas por el flujo normal no contienen style=."""
     assert run_cli("process-session", "1", sample_llm_response_s1)[0] == 0
 
-    project_dir = isolated_dir / "intro_docker"
+    project_dir = isolated_dir / pra_helper.OUTPUT_BASE_DIR / "intro_docker"
     for blade in (project_dir / "sesion1").glob("*.blade.php"):
         assert 'style="' not in blade.read_text(encoding="utf-8")

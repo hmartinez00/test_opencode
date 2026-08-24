@@ -8,6 +8,7 @@ __pycache__/
 outputs.zip
 
 # Artefactos generados por corridas del orquestador
+output_projects/
 intro_docker/
 orchestration_state.json
 orchestration_log.txt

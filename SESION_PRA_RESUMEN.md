@@ -279,10 +279,25 @@ Las plantillas maestras usan `nro`/`folder_name`/`titulo_sesion`/`objetivos`/`id
 
 ---
 
+## Iteración 004: Subdirectorio Maestro de Proyectos Generados (2026-08-24)
+
+**Spec**: `specs/004-subdirectorio-maestro-proyectos-pra/` (T401-T413). **Estado**: IMPLEMENTADA, suite 105/105 verde, cobertura 89% (motor) / 88% (orquestador).
+
+- **Cambio central**: todo proyecto generado vive bajo el subdirectorio maestro `output_projects/` (overridable via env var `PRA_OUTPUT_DIR`); `outputs.zip` también se genera dentro (`output_projects/outputs.zip`). La raíz del repositorio queda limpia.
+- **Motor (`pra_helper.py`)**: constante única `OUTPUT_BASE_DIR = Path(os.environ.get("PRA_OUTPUT_DIR", "output_projects"))`; `get_project_dir()` antepone la base; `find_project_dir()` busca PRIMERO en el maestro y aplica fallback sobre la raíz para proyectos legacy; `cmd_zip` crea el maestro si falta y escribe el zip dentro.
+- **Orquestador (`pra_orchestrator.py`)**: misma constante y estrategia dual en `buscar_proyecto()`; `fase_zip` valida el zip bajo el maestro. Sin cambios de esquema de estado ni códigos de salida.
+- **Compatibilidad legacy**: proyectos antiguos en la raíz siguen procesables vía fallback; NO hay migración automática. Ante colisión, precede el proyecto del maestro.
+- **Tests**: aserciones actualizadas a `<tmp>/output_projects/intro_docker` usando `pra_helper.OUTPUT_BASE_DIR` / `pra_orchestrator.OUTPUT_BASE_DIR` como fuente de verdad; nuevos archivos `tests/unit/test_output_base_dir.py` (9 pruebas: default, igualdad motor/orquestador, precedencia dual, fallback) e `tests/integration/test_cli_output_dir_override.py` (subprocess real con `PRA_OUTPUT_DIR=custom_out`). `conftest.py` elimina `PRA_OUTPUT_DIR` antes de importar los módulos (inmunidad al entorno del host) + fixture autouse por prueba.
+- **Constitucional reforzado**: whitelist de raíz tras corrida E2E = `{documento_fuente.md, output_projects/, orchestration_state.json, orchestration_log.txt}`; se verifica que NO existan `intro_docker/` ni `outputs.zip` sueltos en raíz.
+- **`.gitignore`**: añadido `output_projects/`.
+- **Docs**: árbol actualizado en AGENTS.md y README.md; umbral de suite actualizado a 105 pruebas.
+
+---
+
 ## Cómo Continuar
 
 1. **Para usar el sistema desatendido:** `python pra_orchestrator.py run <documento> --backend mock` (o `opencode` con CLI real disponible).
-2. **Para modificar `pra_helper.py` o `pra_orchestrator.py`:** ejecutar SIEMPRE la suite completa antes de cerrar; mantener ≥ 95 pruebas y cobertura ≥ 85% en ambos módulos.
+2. **Para modificar `pra_helper.py` o `pra_orchestrator.py`:** ejecutar SIEMPRE la suite completa antes de cerrar; mantener ≥ 105 pruebas y cobertura ≥ 85% en ambos módulos.
 3. **Commits de esta iteración: YA REALIZADOS** — `e260836` (spec+implementación+tests) y `3731485` (limpieza de rutas+docs), ambos pusheados a `origin/main`.
 4. **SIGUIENTE PASO ACORDADO (Opción B):** primera corrida real con `--backend opencode --timeout-s 600 --max-retries 3`, previo archivado de los artefactos mock (ver sección "Última Compactación"); luego evaluar la calidad del contenido generado por el LLM. Mejoras futuras adicionales: paralelización no aplica por constitución IV, soporte multi-documento.
 

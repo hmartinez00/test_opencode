@@ -45,6 +45,9 @@ INLINE_STYLE_PATTERN = re.compile(r'style\s*=\s*["\']')
 COVERAGE_ROW_PATTERN = re.compile(r"pra_helper\.py\s+\d+\s+\d+\s+(\d+(?:\.\d+)?)%")
 COVERAGE_MINIMA = 85.0
 STDERR_MAX_CHARS = 500
+# Subdirectorio maestro que aloja todos los proyectos generados (iteracion 004).
+# Mismo default y variable de entorno que en pra_helper.py (D-405).
+OUTPUT_BASE_DIR = Path(os.environ.get("PRA_OUTPUT_DIR", "output_projects"))
 
 EXIT_OK = 0
 EXIT_VALIDACION = 1
@@ -342,11 +345,18 @@ def _ejecutar_pytest():
 
 
 def buscar_proyecto():
-    """Localiza el directorio activo buscando presentation_plan.json en el CWD."""
+    """Localiza el directorio activo buscando presentation_plan.json.
+    Prioriza el subdirectorio maestro (OUTPUT_BASE_DIR); si no hay proyectos
+    alli, aplica fallback sobre la raiz para proyectos legacy (iteracion 004)."""
     cwd = Path.cwd()
-    for item in sorted(cwd.iterdir()):
-        if item.is_dir() and (item / "presentation_plan.json").exists():
-            return item
+    base = cwd / OUTPUT_BASE_DIR
+    scopes = [base] if base == cwd else [base, cwd]
+    for scope in scopes:
+        if not scope.is_dir():
+            continue
+        for item in sorted(scope.iterdir()):
+            if item.is_dir() and (item / "presentation_plan.json").exists():
+                return item
     return None
 
 
@@ -626,7 +636,8 @@ class Orquestador:
         print("[FASE] zip: empaquetando entregable...")
         t0 = time.time()
         codigo, out, err = run_helper("zip")
-        if codigo != 0 or not Path("outputs.zip").exists():
+        ruta_zip = Path.cwd() / OUTPUT_BASE_DIR / "outputs.zip"
+        if codigo != 0 or not ruta_zip.exists():
             detalle = ((out.strip() + " " + err.strip()).strip()
                        or f"outputs.zip no fue generado (codigo {codigo})")[:STDERR_MAX_CHARS]
             fallar_fase(fase, detalle)

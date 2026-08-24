@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 import json
+from pathlib import Path
+
+import pra_helper
 from pra_helper import load_json
 
 
@@ -12,7 +15,10 @@ def test_cli_save_plan_success(run_cli, sample_plan_json_str, isolated_dir):
     assert payload["status"] == "exito"
     assert payload["sesiones_inicializadas"] == 2
 
-    project_dir = isolated_dir / "intro_docker"
+    project_dir = isolated_dir / pra_helper.OUTPUT_BASE_DIR / "intro_docker"
+    # Iteracion 004: el proyecto vive bajo el subdirectorio maestro
+    assert Path(payload["proyecto"]).relative_to(isolated_dir) == pra_helper.OUTPUT_BASE_DIR / "intro_docker"
+    assert not (isolated_dir / "intro_docker").exists()
 
     # Plan maestro normalizado
     plan = load_json(project_dir / "presentation_plan.json")

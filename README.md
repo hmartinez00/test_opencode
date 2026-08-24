@@ -62,6 +62,20 @@ test_opencode/
 │   │   └── orchestrator-contract.md  # CLI run/resume/status y códigos de salida
 │   └── checklists/
 │       └── requirements.md
+├── specs/004-subdirectorio-maestro-proyectos-pra/   # (dentro de specs/)
+│   ├── spec.md                     # Subdirectorio maestro output_projects/
+│   ├── research.md                 # Decisiones técnicas D401-D408
+│   ├── data-model.md               # Cambio de ubicación de artefactos
+│   ├── plan.md                     # Puntos exactos de cambio en motor/orquestador
+│   ├── quickstart.md               # Escenarios de validación de la nueva ruta
+│   ├── tasks.md                    # T401-T413 en 4 fases
+│   ├── contracts/
+│   │   └── cli-contract-v2-deltas.md # Deltas de contrato CLI (rutas)
+│   └── checklists/
+│       └── requirements.md
+├── output_projects/                # Subdirectorio maestro de proyectos generados
+│   ├── outputs.zip                 # Entregable empaquetado (pra_helper.py zip)
+│   └── <carpeta_snake_case>/       # Proyectos generados por el flujo PRA
 └── .specify/
     └── memory/
         └── constitution.md         # Constitución del proyecto
@@ -102,7 +116,7 @@ python -m pip install pytest pytest-cov
 
 ## Testing y Calidad
 
-El proyecto cuenta con una suite de pruebas automatizadas basada en **pytest** (95 pruebas: motor + orquestador, cobertura de `pra_helper.py` y `pra_orchestrator.py` ≥ 85%):
+El proyecto cuenta con una suite de pruebas automatizadas basada en **pytest** (105 pruebas: motor + orquestador, cobertura de `pra_helper.py` y `pra_orchestrator.py` ≥ 85%):
 
 ```bash
 # Suite completa
@@ -141,6 +155,7 @@ Características clave:
 - **Bucle de autocorrección**: ante respuestas LLM defectuosas (CSS inline, JSON malformado), reintenta hasta `--max-retries` veces anexando un diagnóstico al prompt.
 - **Puertas constitucionales**: valida exit code, ausencia de CSS inline y completitud de láminas tras cada sesión; exige suite verde y cobertura ≥ 85% antes de empaquetar.
 - **Estado reanudable**: persistencia atómica en `orchestration_state.json`; auditoría en `orchestration_log.txt`. Ambos quedan fuera de `outputs.zip`.
+- **Subdirectorio maestro**: todo proyecto generado se aloja en `output_projects/` (configurable via variable de entorno `PRA_OUTPUT_DIR`); la raíz del repositorio permanece limpia.
 - **Códigos de salida**: `0` éxito | `1` validación incumplida | `2` estado/secuencialidad | `3` backend no disponible | `4` uso incorrecto.
 
 ## Uso
@@ -179,7 +194,9 @@ python pra_helper.py zip
 | `save-plan <json>` | Guarda plan maestro, inicializa registros y crea estructura |
 | `prompt-session <N>` | Compila prompt adaptado para la generación de laminas de la sesión N |
 | `process-session <N> <r>` | Procesa respuesta del LLM y escribe archivos Blade |
-| `zip` | Empaqueta el proyecto en `outputs.zip` |
+| `zip` | Empaqueta el proyecto en `output_projects/outputs.zip` |
+
+> **Nota (iteración 004)**: los proyectos generados se crean bajo el subdirectorio maestro `output_projects/`. La variable de entorno `PRA_OUTPUT_DIR` permite usar otra ruta; la búsqueda del proyecto activo prioriza ese subdirectorio y aplica un fallback sobre la raíz para proyectos legacy anteriores a esta iteración.
 
 ### Ejemplo Práctico
 
