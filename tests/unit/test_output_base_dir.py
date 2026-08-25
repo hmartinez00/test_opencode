@@ -33,6 +33,23 @@ def test_find_project_dir_prioriza_subdirectorio_maestro(isolated_dir):
     _sembrar_proyecto(isolated_dir, "legacy_proyecto")
     assert ph.find_project_dir() == en_maestro
 
+
+def test_find_project_dir_prioriza_cwd_si_ya_es_un_proyecto(monkeypatch, tmp_path):
+    base = tmp_path / "slides"
+    base.mkdir()
+    intro = base / "intro_docker"
+    target = base / "modulo2_control_flujo"
+    intro.mkdir()
+    target.mkdir()
+    (intro / "presentation_plan.json").write_text("{}", encoding=ph.ENCODING)
+    (target / "presentation_plan.json").write_text("{}", encoding=ph.ENCODING)
+
+    monkeypatch.chdir(target)
+    monkeypatch.setattr(ph, "_base_salida_candidata", lambda: base)
+
+    assert ph.find_project_dir() == target
+
+
 def test_resolve_base_dir_interactivo_exito(monkeypatch, tmp_path):
     monkeypatch.setattr("sys.stdin.isatty", lambda: True)
     ruta_input = tmp_path / "custom_base"

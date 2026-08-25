@@ -365,18 +365,33 @@ def cmd_save_plan(args):
 
 def find_project_dir():
     """Busca el directorio del proyecto activo buscando presentation_plan.json.
-    Prioriza el subdirectorio maestro (OUTPUT_BASE_DIR); si no hay proyectos
-    alli, aplica fallback sobre la raiz para proyectos legacy (iteracion 004)."""
+    Prioriza el directorio actual si ya es un proyecto valido, luego el
+    subdirectorio maestro (OUTPUT_BASE_DIR) y solo despues un fallback a la
+    raiz para proyectos legacy (iteracion 004)."""
     cwd = Path.cwd()
-    # Buscar en subdirectorio maestro (candidato) y luego fallback a CWD
     base = _base_salida_candidata()
-    scopes = [base] if base.resolve() == cwd.resolve() else [base, cwd]
+    scopes = []
+
+    if cwd.is_dir() and (cwd / "presentation_plan.json").exists():
+        scopes.append(cwd)
+
+    if base.is_dir() and base.resolve() != cwd.resolve():
+        scopes.append(base)
+    elif base.is_dir() and base.resolve() == cwd.resolve():
+        scopes.append(base)
+
     for scope in scopes:
         if not scope.is_dir():
             continue
+        if (scope / "presentation_plan.json").exists():
+            return scope
         for item in sorted(scope.iterdir()):
             if item.is_dir() and (item / "presentation_plan.json").exists():
                 return item
+
+    if cwd.is_dir() and (cwd / "presentation_plan.json").exists():
+        return cwd
+
     return None
 
 
