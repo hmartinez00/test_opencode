@@ -884,6 +884,122 @@ def cmd_consolidate(args):
 
 
 # ============================================================
+# Comando: --limpiar (T8xx)
+# ============================================================
+
+def _lote_protegido_completo(project_dir):
+    """Verifica la integridad del lote protegido antes de limpiar."""
+    faltantes = []
+    for nombre in ("manifest.blade.php", "presentation_plan.json",
+                   "class_registry.json", "js_registry.json"):
+        if not (project_dir / nombre).exists():
+            faltantes.append(nombre)
+    if not (project_dir / "assets").is_dir():
+        faltantes.append("assets")
+    sesiones_lote = sorted(p for p in project_dir.glob("session*")
+                           if p.is_dir() and list(p.glob("*.blade.php")))
+    if not sesiones_lote:
+        faltantes.append("session[N] (sin laminas consolidas)")
+    return faltantes
+
+
+def _limpiar_proyecto(project_dir):
+    """Elimina los artefactos residuales preservando el lote protegido.
+
+    Fases: respaldo de la fuente -> puerta protectora -> eliminacion de residuos.
+    Retorna un reporte JSON {ok, backup, eliminados, protegidos}.
+    """
+    reporte = {"ok": True, "backup": [], "eliminados": [], "protegidos": []}
+
+    # Fase A - Respaldo de la fuente (re-consolidable). Se regenera SOLO si hay
+    # fuentes internas presentes; si el proyecto ya esta limpio, se preserva el
+    # backup previo (idempotencia, sin duplicacion ni perdida).
+    fuentes_a_respaldar = sorted(project_dir.glob("sesion*"))
+    adiciones_presentes = [
+        rel for rel in ("styles_additions", "scripts_additions", "manifest_additions")
+        if (project_dir / rel).is_dir()
+    ]
+    hay_fuente = bool(fuentes_a_respaldar) or bool(adiciones_presentes) or \
+        (project_dir / "manifest_draft.blade.php").exists()
+
+    origen_fuente = project_dir / "backup" / "fuente"
+    if hay_fuente:
+        if origen_fuente.exists():
+            shutil.rmtree(origen_fuente)
+        origen_fuente.mkdir(parents=True, exist_ok=True)
+
+        for sesion_dir in fuentes_a_respaldar:
+            if sesion_dir.is_dir():
+                destino = origen_fuente / sesion_dir.name
+                shutil.copytree(sesion_dir, destino)
+                reporte["protegidos"].append(f"backup/fuente/{sesion_dir.name}")
+
+        for rel in adiciones_presentes:
+            origen = project_dir / rel
+            destino = origen_fuente / rel
+            shutil.copytree(origen, destino)
+            reporte["protegidos"].append(f"backup/fuente/{rel}")
+
+        for rel in ("manifest_draft.blade.php", "presentation_plan.json"):
+            origen = project_dir / rel
+            if origen.exists():
+                destino = origen_fuente / rel
+                shutil.copyfile(origen, destino)
+                reporte["protegidos"].append(f"backup/fuente/{rel}")
+
+    # Fase B - Puerta protectora del lote
+    faltantes = _lote_protegido_completo(project_dir)
+    if faltantes:
+        reporte["ok"] = False
+        reporte["error"] = "Lote protegido incompleto: " + ", ".join(faltantes)
+        return reporte
+
+    reporte["protegidos"].extend([
+        "manifest.blade.php", "presentation_plan.json", "class_registry.json",
+        "js_registry.json", "assets", "session[N]",
+    ])
+
+    # Fase C - Eliminacion de residuos
+    for sesion_dir in fuentes_a_respaldar:
+        if sesion_dir.is_dir():
+            shutil.rmtree(sesion_dir)
+            reporte["eliminados"].append(sesion_dir.name)
+
+    for rel in ("styles_additions", "scripts_additions", "manifest_additions"):
+        origen = project_dir / rel
+        if origen.is_dir():
+            shutil.rmtree(origen)
+            reporte["eliminados"].append(rel)
+
+    for rel in ("manifest_draft.blade.php", "styles.blade.php", "scripts.blade.php",
+                "outputs.zip"):
+        origen = project_dir / rel
+        if origen.exists():
+            origen.unlink()
+            reporte["eliminados"].append(rel)
+
+    reporte["protegidos"] = sorted(set(reporte["protegidos"]))
+    reporte["eliminados"] = sorted(set(reporte["eliminados"]))
+    return reporte
+
+
+def cmd_limpiar(args):
+    """Limpia los artefactos residuales del proyecto activo."""
+    project_dir = find_project_dir()
+    if not project_dir:
+        print(json.dumps({"ok": False, "error": "No se encontro directorio de proyecto"},
+                         ensure_ascii=False))
+        sys.exit(1)
+    try:
+        reporte = _limpiar_proyecto(project_dir)
+    except OSError as error:
+        print(json.dumps({"ok": False, "errores": [str(error)]}, ensure_ascii=False))
+        sys.exit(3)
+    print(json.dumps(reporte, ensure_ascii=False, indent=JSON_INDENT))
+    sys.exit(0 if reporte["ok"] else 2)
+
+
+# ============================================================
 # Comando: --zip (T017)
 # ============================================================
 
@@ -976,6 +1092,7 @@ def main():
     process_parser.add_argument("--respuesta-file", help="Ruta a archivo con la respuesta LLM")
 
     subparsers.add_parser("consolidate")
+    subparsers.add_parser("limpiar")
     subparsers.add_parser("zip")
 
     args = parser.parse_args()
@@ -990,6 +1107,8 @@ def main():
         cmd_process_session(args)
     elif args.comando == "consolidate":
         cmd_consolidate(args)
+    elif args.comando == "limpiar":
+        cmd_limpiar(args)
     elif args.comando == "zip":
         cmd_zip(args)
     else:

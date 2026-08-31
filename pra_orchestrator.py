@@ -8,7 +8,7 @@ artefactos en los comandos CLI de pra_helper.py (caja negra via subprocess):
 
     run <documento> [--backend mock|opencode] [--max-retries N] [--timeout-s S]
         init -> save-plan -> [prompt-session N -> LLM -> process-session N]*
-        -> pytest (calidad) -> zip
+        -> pytest (calidad) -> cleanup (limpieza de residuales)
     resume   Reanuda una corrida interrumpida desde la ultima fase valida.
     status   Muestra un resumen legible del estado de orquestacion.
 
@@ -118,9 +118,29 @@ def nuevo_estado(documento, backend, max_reintentos):
             "sesiones": [],
             "consolidate": _fase_nueva(),
             "pytest": _fase_nueva(),
-            "zip": _fase_nueva(),
+            "cleanup": _fase_nueva(),
         },
     }
+
+
+def normalizar_fases(estado):
+    """Estandariza el diccionario de fases; mapea estados viejos con `zip` (T8xx).
+
+    Iteracion 008: estados previos contienen la fase `cleanup`; estados mas
+    antiguos contienen `zip`. Se normaliza `zip` -> `cleanup` para compatibilidad.
+    """
+    fases = estado.get("fases", {})
+    if "zip" in fases and "cleanup" not in fases:
+        zip_fase = fases.pop("zip")
+        if zip_fase["estado"] == ESTADO_COMPLETADA:
+            fases["cleanup"] = {
+                "estado": ESTADO_COMPLETADA,
+                "intentos": zip_fase.get("intentos", 1),
+                "ultimo_error": zip_fase.get("ultimo_error"),
+            }
+        else:
+            fases["cleanup"] = _fase_nueva()
+    fases.setdefault("cleanup", _fase_nueva())
 
 
 def cargar_estado():
@@ -134,6 +154,7 @@ def cargar_estado():
         return None
     if not isinstance(estado, dict) or not isinstance(estado.get("fases"), dict):
         return None
+    normalizar_fases(estado)
     return estado
 
 
@@ -723,33 +744,29 @@ class Orquestador:
         print(f"[FASE] consolidate: OK (laminas={reporte.get('laminas_materializadas', 0)})")
         return EXIT_OK
 
-    # ---------------- Fase: zip (empaquetado) - T312 ----------------
-    def fase_zip(self, estado):
-        fase = estado["fases"]["zip"]
+    # ---------------- Fase: cleanup (limpieza de residuales) - T8xx ----------------
+    def fase_cleanup(self, estado):
+        fase = estado["fases"]["cleanup"]
         iniciar_fase(fase)
         fase["intentos"] = 1
         guardar_estado(estado)
-        print("[FASE] zip: empaquetando entregable...")
+        print("[FASE] cleanup: limpiando artefactos residuales...")
         t0 = time.time()
-        codigo, out, err = run_helper("zip")
-        proyecto = buscar_proyecto()
-        if not proyecto:
-             fallar_fase(fase, "Proyecto no encontrado para localizar zip")
-             guardar_estado(estado)
-             return EXIT_ESTADO
-        ruta_zip = proyecto / "outputs.zip"
-        if codigo != 0 or not ruta_zip.exists():
-            detalle = ((out.strip() + " " + err.strip()).strip()
-                       or f"outputs.zip no fue generado (codigo {codigo})")[:STDERR_MAX_CHARS]
-            fallar_fase(fase, detalle)
+        codigo, out, err = run_helper("limpiar")
+        detalle = (out.strip() + " " + err.strip()).strip()[:STDERR_MAX_CHARS]
+        reporte = extraer_json(out) or {}
+        if codigo != 0 or not reporte.get("ok"):
+            motivo = detalle or (reporte and "; ".join(reporte.get("errores", []))) \
+                or f"Limpieza invalida (codigo {codigo})"
+            fallar_fase(fase, motivo[:STDERR_MAX_CHARS])
             guardar_estado(estado)
-            self._log_intento("zip", 1, False, detalle, t0)
-            print("[FASE] zip: FALLO")
+            self._log_intento("cleanup", 1, False, motivo, t0)
+            print("[FASE] cleanup: FALLO")
             return EXIT_VALIDACION
         completar_fase(fase)
         guardar_estado(estado)
-        self._log_intento("zip", 1, True, "", t0)
-        print("[FASE] zip: OK -> outputs.zip")
+        self._log_intento("cleanup", 1, True, "", t0)
+        print("[FASE] cleanup: OK")
         return EXIT_OK
 
     # ---------------- Pipeline completo (run / resume) ----------------
@@ -785,11 +802,11 @@ class Orquestador:
             rc = self.fase_pytest(estado)
             if rc != EXIT_OK:
                 return rc
-        if fases["zip"]["estado"] != ESTADO_COMPLETADA:
-            rc = self.fase_zip(estado)
+        if fases["cleanup"]["estado"] != ESTADO_COMPLETADA:
+            rc = self.fase_cleanup(estado)
             if rc != EXIT_OK:
                 return rc
-        print("[FIN] Corrida completada: outputs.zip listo para integrarse en Laravel.")
+        print("[FIN] Corrida completada: directorio del proyecto limpio (solo lote + backup/fuente/).")
         return EXIT_OK
 
 
@@ -884,7 +901,7 @@ def cmd_status(args):
         print(f"{nombre:<14}{fase['estado']:<14}{fase['intentos']}")
     for s in sorted(fases["sesiones"], key=lambda x: x["numero"]):
         print(f"{'sesion ' + str(s['numero']):<14}{s['estado']:<14}{s['intentos']}")
-    for nombre in ("consolidate", "pytest", "zip"):
+    for nombre in ("consolidate", "pytest", "cleanup"):
         fase = fases[nombre]
         print(f"{nombre:<14}{fase['estado']:<14}{fase['intentos']}")
     return EXIT_OK

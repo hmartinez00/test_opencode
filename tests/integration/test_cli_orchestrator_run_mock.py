@@ -43,30 +43,34 @@ def test_run_mock_flujo_completo_exitoso(run_orchestrator, entorno_e2e, isolated
 
     assert codigo == 0
     proyecto = isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker"
-    # Artefactos del motor generados por pra_helper.py
+    # Lote protegido generado y conservado por pra_helper.py
     assert (proyecto / "presentation_plan.json").exists()
     assert (proyecto / "class_registry.json").exists()
     assert (proyecto / "js_registry.json").exists()
-    assert (proyecto / "manifest_draft.blade.php").exists()
+    assert (proyecto / "manifest.blade.php").exists()
     for lamina in (
-        proyecto / "sesion1" / "que-es-docker.blade.php",
-        proyecto / "sesion1" / "arquitectura.blade.php",
-        proyecto / "sesion2" / "comandos-basicos.blade.php",
+        proyecto / "session1" / "que-es-docker.blade.php",
+        proyecto / "session1" / "arquitectura.blade.php",
+        proyecto / "session2" / "comandos-basicos.blade.php",
     ):
         assert lamina.exists(), f"Falta {lamina}"
-    # Entregable (iteracion 005: outputs.zip vive DENTRO del directorio del proyecto)
-    zip_path = proyecto / "outputs.zip"
-    assert zip_path.exists()
-    # Iteracion 004/005: sin entregables ni carpetas de proyecto en la raiz del maestro
-    assert not (isolated_dir / "outputs.zip").exists()
-    assert not (proyecto / ".." / "outputs.zip").exists()
-    with zipfile.ZipFile(zip_path) as zf:
-        nombres = zf.namelist()
-    assert not any("orchestration" in n for n in nombres)
-    # Estado final completamente completado
+    assert (proyecto / "assets").is_dir()
+    # Iteracion 008: sin outputs.zip (fase zip omitida) ni artefactos residuales
+    assert not (proyecto / "outputs.zip").exists()
+    assert not (proyecto / "sesion1").exists()
+    assert not (proyecto / "sesion2").exists()
+    assert not (proyecto / "manifest_draft.blade.php").exists()
+    assert not (proyecto / "styles.blade.php").exists()
+    assert not (proyecto / "scripts.blade.php").exists()
+    # Respaldo de la fuente re-consolidable
+    assert (proyecto / "backup/fuente/sesion1").is_dir()
+    assert (proyecto / "backup/fuente/sesion2").is_dir()
+    assert (proyecto / "backup/fuente/manifest_draft.blade.php").exists()
+    # Estado final completamente completado, con cleanup y sin zip
     estado = json.loads((isolated_dir / po.STATE_FILE).read_text(encoding="utf-8"))
-    for fase in ("init", "save_plan", "pytest", "zip"):
-        assert estado["fases"][fase]["estado"] == "completada"
+    for fase in ("init", "save_plan", "pytest", "cleanup"):
+        assert estado["fases"][fase]["estado"] == "completada", f"Fase {fase} no completada"
+    assert "zip" not in estado["fases"]
     assert all(s["estado"] == "completada" for s in estado["fases"]["sesiones"])
     assert (isolated_dir / po.LOG_FILE).exists()
 
@@ -87,8 +91,9 @@ def test_run_mock_determinismo_entre_corridas(run_orchestrator, entorno_e2e, iso
             codigo, _ = run_orchestrator("run", "documento_fuente.md", "--backend", "mock")
             assert codigo == 0
             hashes.append(arbol_hashes(destino / po.OUTPUT_BASE_DIR / "intro_docker"))
-            # Iteracion 005: outputs.zip vive dentro del directorio del proyecto
-            assert (destino / po.OUTPUT_BASE_DIR / "intro_docker" / "outputs.zip").exists()
+            # Iteracion 008: el respaldo y el lote deben ser identicos entre corridas
+            assert (destino / po.OUTPUT_BASE_DIR / "intro_docker" / "manifest.blade.php").exists()
+            assert not (destino / po.OUTPUT_BASE_DIR / "intro_docker" / "outputs.zip").exists()
         finally:
             os.chdir(cwd_previo)
 

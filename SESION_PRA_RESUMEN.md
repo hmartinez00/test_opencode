@@ -365,6 +365,18 @@ Las plantillas maestras usan `nro`/`folder_name`/`titulo_sesion`/`objetivos`/`id
 
 ---
 
+## Iteración 008: Limpieza de Artefactos Residuales con Protección del Lote (2026-08-31)
+
+**Spec**: `specs/008-limpieza-artefactos-residuales/` (T801-T830). **Estado**: IMPLEMENTADA con TDD (rojo→verde→refactor), suite 133/133 verde, cobertura 89% (motor) / 86% (orquestador).
+
+- **Cambio central**: al terminar una corrida PRA, el directorio del proyecto contiene solo el lote protegido (`manifest.blade.php`, `presentation_plan.json`, `class_registry.json`, `js_registry.json`, `session[N]/`, `assets/`) más `backup/fuente/` (fuente re-consolidable). La fase `zip` se omite del flujo automatico y se reemplaza por `cleanup`.
+- **Motor (`pra_helper.py`)**: nuevo comando `limpiar` (`cmd_limpiar`) y funcion `_limpiar_proyecto(project_dir)` que (A) respalda la fuente en `backup/fuente/` de forma idempotente, (B) verifica la integridad del lote protegido (abortando sin borrar si falta alguno, exit 2), y (C) elimina `sesion[N]/`, `manifest_draft.blade.php`, `styles.blade.php`, `scripts.blade.php`, `styles_additions/`, `scripts_additions/`, `manifest_additions/` y `outputs.zip`. `cmd_zip` queda como utilidad manual opcional.
+- **Orquestador (`pra_orchestrator.py`)**: `nuevo_estado()` usa `cleanup` en vez de `zip`; nueva `fase_cleanup(estado)` que invoca `run_helper("limpiar")` y valida el reporte; `ejecutar_desde_estado` y `cmd_status` actualizados; nueva `normalizar_fases(estado)` que mapea estados viejos con `zip` → `cleanup` (retrocompatibilidad de `resume`).
+- **Tests**: nuevos `tests/unit/test_limpieza.py` (6), `tests/integration/test_cli_limpieza.py` (3), retrocompat en `test_orchestrator_state.py`, `tests/constitutional/test_limpieza_rules.py` (1). Actualizados los asserts de `run_mock`, `resume`, `retry` y `test_orchestrator_rules.py` al estado final limpio (sin `outputs.zip`, sin `sesion[N]/`, con `cleanup` y `backup/fuente/`).
+- **Docs**: AGENTS.md, README.md, contrato CLI de specs 001 y 003 actualizados.
+
+---
+
 ## Cómo Continuar
 
 1. **Para usar el sistema desatendido:** `python pra_orchestrator.py run <documento> --backend mock` (o `opencode` con CLI real disponible).

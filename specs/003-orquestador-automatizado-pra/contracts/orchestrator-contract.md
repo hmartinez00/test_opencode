@@ -23,10 +23,12 @@ python pra_orchestrator.py run <documento_fuente> [--backend mock|opencode] [--m
 
 **Comportamiento**:
 1. Crea/reescribe `orchestration_state.json` en el CWD.
-2. Ejecuta fases en orden: `init` -> `save_plan` -> `sesion[1..S]` -> `pytest` -> `zip`.
+2. Ejecuta fases en orden: `init` -> `save_plan` -> `sesion[1..S]` -> `pytest` -> `cleanup`.
 3. Imprime progreso por fase en STDOUT y auditoria detallada en `orchestration_log.txt`.
 
-**Salidas**: codigo `0` con resumen final y ruta de `outputs.zip`; codigos de error segun tabla inferior.
+**Salidas**: codigo `0` con resumen final del directorio limpio (lote protegido + `backup/fuente/`); codigos de error segun tabla inferior.
+
+**Nota (iteracion 008)**: la fase `zip` fue omitida del flujo automatico y reemplazada por `cleanup`, que invoca `pra_helper.py limpiar`. Estados guardados previos que contengan la fase `zip` se normalizan (via `normalizar_fases`) a `cleanup` al reanudar; `zip@completada` se mapea a `cleanup@completada` sin re-ejecutar.
 
 ---
 
@@ -51,13 +53,13 @@ python pra_orchestrator.py status
 Imprime tabla legible:
 
 ```text
-Fase          Estado       Intentos
+Fixture       Estado       Intentos
 init          completada   1
 save_plan     completada   1
 sesion 1      completada   2
 sesion 2      pendiente    0
 pytest        pendiente    0
-zip           pendiente    0
+cleanup       pendiente    0
 ```
 
 Sin estado previo: codigo `2`.
@@ -80,7 +82,7 @@ Sin estado previo: codigo `2`.
 
 1. **Delegacion exclusiva**: toda mutacion de artefactos del proyecto se ejecuta via subprocess a `pra_helper.py`. El orquestador jamas escribe laminas, estilos, scripts, manifest ni registros.
 2. **Estado atomico**: cada transicion persiste `orchestration_state.json` de forma atomica; una caida nunca deja un estado a medio escribir.
-3. **No contaminacion del entregable**: `orchestration_state.json` y `orchestration_log.txt` quedan fuera de `outputs.zip`.
+3. **No contaminacion del proyecto**: `orchestration_state.json` y `orchestration_log.txt` quedan fuera del directorio del proyecto.
 4. **Secuencialidad estricta**: no se invoca `prompt-session N+1` sin sesion N `completada`.
 5. **Determinismo mock**: con `--backend mock`, las respuestas provienen integramente de `mocks_llm/` y dos corridas producen arboles identicos.
 6. **Auditoria**: todo intento (OK/FALLO) queda registrado con timestamp, diagnostico y duracion.

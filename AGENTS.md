@@ -68,23 +68,23 @@ C:\laragon\www\test_opencode\
 └── [Ruta configurada en PRA_OUTPUT_DIR] <-- Subdirectorio maestro de proyectos generados (iteracion 005;
     |                                    default: C:\laragon\www\product_samples\slides)
     ├── [nombre_proyecto_snake_case]/   <-- Directorio generado del proyecto activo
-        ├── outputs.zip                 <-- Entregable empaquetado (generado por `pra_helper.py zip`)
-        ├── presentation_plan.json      <-- Plan maestro normalizado
-        ├── class_registry.json         <-- Registro vivo de clases CSS implementadas
-        ├── js_registry.json            <-- Registro vivo de comportamientos JavaScript implementados
-        ├── manifest_draft.blade.php    <-- Estructura de integracion Laravel inicial
-        ├── styles.blade.php            <-- Estilos globales acumulados del proyecto
-        ├── scripts.blade.php           <-- Scripts interactivos acumulados del proyecto
-        ├── styles_additions/           <-- Estilos aislados respaldados por sesion
-        ├── scripts_additions/          <-- Scripts aislados respaldados por sesion
-        ├── manifest_additions/         <-- Fragmentos de <x-slide> generados por sesion
-        └── sesion[N]/                  <-- Subcarpetas que contienen los archivos .blade.php de cada lamina
-            └── [slide-id-kebab-case].blade.php
-        ├── manifest.blade.php          <-- Manifest final consolidado
-        ├── global/                     <-- Vistas compartidas consolidadas
-        ├── session[N]/                 <-- Vistas finales por sesion
-        └── assets/                     <-- Entry points y fragmentos CSS/JS finales
+        ├── manifest.blade.php          <-- Manifest final consolidado (lote protegido)
+        ├── presentation_plan.json      <-- Plan maestro normalizado (lote protegido)
+        ├── class_registry.json         <-- Registro vivo de clases CSS (lote protegido)
+        ├── js_registry.json            <-- Registro vivo de comportamientos JS (lote protegido)
+        ├── session[N]/                 <-- Vistas finales por sesion (referenciadas por el manifest)
+        ├── assets/                     <-- Entry points y fragmentos CSS/JS finales
+        └── backup/
+            └── fuente/                 <-- Fuente interna re-consolidable (iteracion 008)
+                ├── sesion[N]/          <-- Laminas fuente originales
+                ├── styles_additions/   <-- CSS aislado por sesion
+                ├── scripts_additions/  <-- JS aislado por sesion
+                ├── manifest_additions/ <-- Fragmentos de <x-slide> por sesion
+                ├── manifest_draft.blade.php
+                └── presentation_plan.json
 ```
+
+> **Nota (iteracion 008)**: Durante la construccion interna el proyecto contiene artefactos residuales (`sesion[N]/`, `manifest_draft.blade.php`, `styles.blade.php`, `scripts.blade.php`, `styles_additions/`, `scripts_additions/`, `manifest_additions/`, `outputs.zip`). El comando `pra_helper.py limpiar` (o la fase `cleanup` del orquestador) los elimina al final, dejando solo el lote protegido + `backup/fuente/`.
 
 ---
 
@@ -107,14 +107,14 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
 * **Subdirectorio maestro (iteracion 005):** Todo proyecto generado se aloja bajo `C:\laragon\www\product_samples\slides` por defecto. La variable de entorno `PRA_OUTPUT_DIR` permite sobreescribir esta ruta base (NO es el nombre del proyecto; el nombre proviene de `carpeta_snake_case` en el plan JSON). El sistema crea el proyecto en `<PRA_OUTPUT_DIR>/<carpeta_snake_case>/`. Si la ruta configurada (o la predeterminada) no existe, el sistema solicita interactivamente una ruta valida (max. 3 intentos) o aborta con exit code 1 en entornos no interactivos. Sintaxis:
     * PowerShell: `$env:PRA_OUTPUT_DIR = "C:\ruta\base"`
     * Bash/Linux/Git Bash: `export PRA_OUTPUT_DIR="/ruta/base"`
-    * El entregable `outputs.zip` se genera dentro de cada subdirectorio de proyecto. La raiz del repositorio debe permanecer limpia. Detalles: `specs/005-directorio-maestro-rutas-y-zip/`.
+    * El proyecto generado se aloja en el subdirectorio maestro. La raiz del repositorio debe permanecer limpia. Detalles: `specs/005-directorio-maestro-rutas-y-zip/`. Al terminar, el directorio del proyecto contiene solo el lote protegido + `backup/fuente/` (la fase `cleanup` del orquestador elimina `outputs.zip` y los demas residuales; ver iteracion 008).
 * **Proyecto activo (iteracion 007):** La variable de entorno `PRA_ACTIVE_PROJECT` permite seleccionar explicita y deterministicamente el proyecto activo entre varios alojados en el directorio maestro. Debe contener el valor `carpeta_snake_case` del proyecto (ej. `modulo3_estructuras_datos`). Si la carpeta indicada no existe, se cae al comportamiento actual (busqueda automatica). Sintaxis:
     * PowerShell: `$env:PRA_ACTIVE_PROJECT = "nombre_proyecto"`
     * Bash/Linux/Git Bash: `export PRA_ACTIVE_PROJECT="nombre_proyecto"`
 
 ### Garantia de Calidad (Suite de Pruebas):
-* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (119 pruebas aprobadas en la verificacion final del repositorio) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
-* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%. La verificacion final actual reporta 88% y 85% respectivamente.
+* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (133 pruebas aprobadas en la verificacion final del repositorio) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
+* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%. La verificacion final actual reporta 89% y 86% respectivamente.
 * **Nuevas funcionalidades requieren nuevas pruebas:** Todo cambio o feature en el motor o el orquestador debe incluir pruebas unitarias, de integracion o constitucionales segun corresponda, siguiendo la especificacion de `specs/002-sistema-testing-pra/`.
 
 ---
@@ -150,21 +150,26 @@ Antes de ejecutar cualquier comando del flujo PRA, el agente DEBE verificar y co
 ### Fase de Consolidacion (`python pra_helper.py consolidate`):
 1. Leer el plan y los artefactos internos de todas las sesiones completadas.
 2. Generar `manifest.blade.php`, `global/`, `session[N]/` y `assets/` sin duplicados ni CSS inline.
-3. Validar referencias Blade y entry points antes de permitir el empaquetado.
+3. Validar referencias Blade y entry points antes de permitir la consolidacion.
 
-### Fase de Cierre (`@pra empaquetar`):
-1. Invocar `python pra_helper.py zip` para comprimir el proyecto y dejarlo listo para su descarga e integracion en Laravel.
+### Fase de Limpieza (`python pra_helper.py limpiar`, iteracion 008):
+1. Respalda la fuente interna en `backup/fuente/` de forma idempotente y determinista.
+2. Verifica la integridad del lote protegido; si falta alguno, aborta sin borrar nada.
+3. Elimina los artefactos residuales (`sesion[N]/`, `manifest_draft.blade.php`, acumuladores, adiciones y `outputs.zip`), dejando el proyecto con solo el lote protegido + `backup/fuente/`.
+
+### Fase de Empaquetado opcional (`pra_helper.py zip`):
+1. `zip` queda como utilidad manual opcional; NO se invoca en el flujo automatico (la integracion se hace desde el directorio del proyecto).
 
 ### Fase de Orquestacion Desatendida (`@pra automatizar`, iteracion 003):
-Alternativa a las fases manuales anteriores: `pra_orchestrator.py` ejecuta el flujo completo (init -> save-plan -> sesiones -> consolidate -> pytest -> zip) delegando TODA mutacion de artefactos en los comandos CLI de `pra_helper.py` via subprocess.
+Alternativa a las fases manuales anteriores: `pra_orchestrator.py` ejecuta el flujo completo (init -> save-plan -> sesiones -> consolidate -> pytest -> cleanup) delegando TODA mutacion de artefactos en los comandos CLI de `pra_helper.py` via subprocess.
 1. Corrida desatendida: `python pra_orchestrator.py run <documento> [--backend mock|opencode] [--max-retries N]`.
 2. Reanudacion e inspeccion: `python pra_orchestrator.py resume` / `python pra_orchestrator.py status`.
-3. El orquestador aplica puertas constitucionales por sesion (exit code, regex anti CSS inline, laminas completas) y un bucle de reintentos con prompt de reflexion de error; exige suite verde + cobertura >= 85% antes de empaquetar.
-4. Sus unicos artefactos de escritura propios son `orchestration_state.json` y `orchestration_log.txt` (excluidos del zip). Contrato completo: `specs/003-orquestador-automatizado-pra/contracts/orchestrator-contract.md`.
+3. El orquestador aplica puertas constitucionales por sesion (exit code, regex anti CSS inline, laminas completas) y un bucle de reintentos con prompt de reflexion de error; exige suite verde + cobertura >= 85% antes de entrar a la fase `cleanup`.
+4. Sus unicos artefactos de escritura propios son `orchestration_state.json` y `orchestration_log.txt` (excluidos del directorio del proyecto). Contrato completo: `specs/003-orquestador-automatizado-pra/contracts/orchestrator-contract.md`.
 
 ### Fase de Verificacion (obligatoria tras cualquier cambio en el motor):
 1. Ejecutar la suite completa: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
-2. Verificar que las 105 pruebas pasen y que la cobertura de `pra_helper.py` y `pra_orchestrator.py` sea >= 85%.
+2. Verificar que las 133 pruebas pasen y que la cobertura de `pra_helper.py` y `pra_orchestrator.py` sea >= 85%.
 3. Si se agregaron funcionalidades nuevas, incorporar las pruebas correspondientes antes de cerrar la tarea.
 
 ---
@@ -190,6 +195,7 @@ El script `pra_helper.py` normaliza automaticamente los campos del plan maestro 
 * La especificacion del sistema de testing y su guia de ejecucion se encuentran en `specs/002-sistema-testing-pra/`.
 * La especificacion del orquestador automatico y su contrato CLI se encuentran en `specs/003-orquestador-automatizado-pra/`.
 * La especificacion del subdirectorio maestro de proyectos generados se encuentra en `specs/004-subdirectorio-maestro-proyectos-pra/`.
+* La especificacion de la limpieza de artefactos residuales (fase `cleanup` y comando `limpiar`) se encuentra en `specs/008-limpieza-artefactos-residuales/`.
 
 ---
 

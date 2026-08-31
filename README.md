@@ -92,7 +92,13 @@ test_opencode/
 │   └── contracts/consolidation-contract.md
 ├── [Ruta configurada en PRA_OUTPUT_DIR]/   # Subdirectorio maestro (default: C:\laragon\www\product_samples\slides)
 │   └── <carpeta_snake_case>/       # Proyectos generados por el flujo PRA
-│       └── outputs.zip             # Entregable empaquetado (pra_helper.py zip)
+│       ├── manifest.blade.php      # Lote protegido (integrado en Laravel)
+│       ├── presentation_plan.json
+│       ├── class_registry.json
+│       ├── js_registry.json
+│       ├── session[N]/             # Vistas finales por sesion (referenciadas por el manifest)
+│       ├── assets/                 # Entry points y fragmentos CSS/JS finales
+│       └── backup/fuente/          # Fuente interna re-consolidable (iteracion 008)
 └── .specify/
     └── memory/
         └── constitution.md         # Constitución del proyecto
@@ -177,8 +183,9 @@ python pra_orchestrator.py status
 
 Características clave:
 - **Bucle de autocorrección**: ante respuestas LLM defectuosas (CSS inline, JSON malformado), reintenta hasta `--max-retries` veces anexando un diagnóstico al prompt.
-- **Puertas constitucionales**: valida exit code, ausencia de CSS inline y completitud de láminas tras cada sesión; exige suite verde y cobertura ≥ 85% antes de empaquetar.
-- **Estado reanudable**: persistencia atómica en `orchestration_state.json`; auditoría en `orchestration_log.txt`. Ambos quedan fuera de `outputs.zip`.
+- **Puertas constitucionales**: valida exit code, ausencia de CSS inline y completitud de láminas tras cada sesión; exige suite verde y cobertura ≥ 85% antes de limpiar.
+- **Estado reanudable**: persistencia atómica en `orchestration_state.json`; auditoría en `orchestration_log.txt`. Ambos quedan fuera del directorio del proyecto.
+- **Limpieza de residuales (iteracion 008)**: la corrida omite la fase `zip` y termina con `cleanup`, dejando el directorio con solo el lote protegido + `backup/fuente/` (sin `outputs.zip`).
 - **Subdirectorio maestro**: todo proyecto generado se aloja en `C:\laragon\www\product_samples\slides` (configurable via variable de entorno `PRA_OUTPUT_DIR`); la raíz del repositorio permanece limpia.
 - **Consolidacion final**: genera `manifest.blade.php`, vistas bajo `global/` y `sessionN/`, y entrypoints de assets bajo `assets/` antes de empaquetar.
 - **Códigos de salida**: `0` éxito | `1` validación incumplida | `2` estado/secuencialidad | `3` backend no disponible | `4` uso incorrecto.
@@ -228,8 +235,8 @@ python pra_helper.py process-session 1 "respuesta_completa_del_llm..."
 # 5. Consolidar estructura final Laravel
 python pra_helper.py consolidate
 
-# 6. Empaquetar proyecto final
-python pra_helper.py zip
+# 6. Limpiar artefactos residuales (opcional en flujo manual; automatico en el orquestador)
+python pra_helper.py limpiar
 ```
 
 ### Comandos Disponibles
@@ -241,11 +248,14 @@ python pra_helper.py zip
 | `prompt-session <N>` | Compila prompt adaptado para la generación de laminas de la sesión N |
 | `process-session <N> <r> [--respuesta-file <ruta>]` | Procesa respuesta del LLM y escribe archivos Blade |
 | `consolidate` | Consolida manifest, vistas y assets en la estructura final Laravel |
-| `zip` | Empaqueta el proyecto en `<directorio_proyecto>/outputs.zip` |
+| `limpiar` | Elimina artefactos residuales preservando el lote protegido y respaldando la fuente en `backup/fuente/` |
+| `zip` | Utilidad manual opcional: empaqueta el proyecto en `<directorio_proyecto>/outputs.zip` (no se invoca en el flujo automatico) |
 
 > **Nota**: La búsqueda del proyecto activo prioriza el directorio maestro y aplica un fallback sobre la raíz del repositorio para proyectos legacy anteriores a la iteración 005. Ver la sección *Flujo Completo* arriba para cómo configurar `PRA_OUTPUT_DIR`.
 
 > **Iteración 007**: El comando `process-session` acepta `--respuesta-file <ruta>` para procesar respuestas LLM muy largas que superan el límite de argumentos en Windows (`WinError 206`); si se provee, prevalece sobre el argumento posicional. La variable de entorno `PRA_ACTIVE_PROJECT` permite seleccionar explícitamente el proyecto activo (`<carpeta_snake_case>`) entre varios alojados en el directorio maestro.
+
+> **Iteración 008**: Al terminar una corrida, el directorio del proyecto contiene solo el lote protegido (`manifest.blade.php`, `presentation_plan.json`, `class_registry.json`, `js_registry.json`, `session[N]/`, `assets/`) más `backup/fuente/` (fuente re-consolidable). El flujo automatico del orquestador omite la fase `zip` (termina con `cleanup`) y ya no genera `outputs.zip`.
 
 ### Ejemplo Práctico
 

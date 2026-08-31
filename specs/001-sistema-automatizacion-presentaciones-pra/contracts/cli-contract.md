@@ -174,3 +174,31 @@
 - `0`: Exito
 - `1`: No hay sesiones completadas para empaquetar
 - `2`: Error de creacion del archivo ZIP
+
+---
+
+### 6. `--limpiar`
+
+**Proposito**: Elimina los artefactos residuales de construccion del proyecto activo preservando el lote protegido e integrable en Laravel, y respalda la fuente interna en `backup/fuente/` para permitir re-consolidar. (Iteracion 008.)
+
+**Sintaxis**: `python pra_helper.py --limpiar`
+
+**Argumentos**: Ninguno.
+
+**Comportamiento**:
+1. Localiza el proyecto activo (respetando `PRA_ACTIVE_PROJECT` / `PRA_OUTPUT_DIR`).
+2. Respala la fuente interna (`sesion[N]/`, adiciones, `manifest_draft.blade.php`, `presentation_plan.json`) en `backup/fuente/`, de forma idempotente y determinista.
+3. Verifica la integridad del lote protegido (`manifest.blade.php`, `presentation_plan.json`, `class_registry.json`, `js_registry.json`, `session[N]/`, `assets/`). Si falta alguno, aborta SIN borrar nada.
+4. Elimina los residuos: `sesion[N]/`, `manifest_draft.blade.php`, `styles.blade.php`, `scripts.blade.php`, `styles_additions/`, `scripts_additions/`, `manifest_additions/` y `outputs.zip`.
+
+**Salida esperada (STDOUT)**: Reporte JSON con `ok`, `backup`, `eliminados` y `protegidos`.
+
+**Archivos creados / modificados**:
+- `backup/fuente/` (respaldo de la fuente)
+- Eliminados los artefactos residuales listados arriba
+
+**Codigo de retorno**:
+- `0`: Limpieza exitosa
+- `1`: Proyecto no encontrado
+- `2`: Lote protegido incompleto (puerta abortada, no se borro nada)
+- `3`: Error de lectura/escritura de archivos

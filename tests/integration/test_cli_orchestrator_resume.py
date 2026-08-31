@@ -50,19 +50,22 @@ def sembrar_estado_con_sesion1_completada(isolated_dir):
 def test_resume_continua_desde_sesion2_sin_reprocesar_la_1(run_orchestrator, entorno, isolated_dir):
     construir_proyecto_hasta_sesion1(entorno, isolated_dir)
     sembrar_estado_con_sesion1_completada(isolated_dir)
-    styles_antes = (isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker" / "styles.blade.php").read_text(encoding="utf-8")
+    antes = (isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker" / "styles_additions" /
+             "sesion1_styles.css").read_text(encoding="utf-8")
 
     codigo, salida = run_orchestrator("resume")
 
     assert codigo == 0
     proyecto = isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker"
-    # Sesion 2 generada; sesion 1 intacta (CSS no duplicado)
-    assert (proyecto / "sesion2" / "comandos-basicos.blade.php").exists()
-    styles_despues = (proyecto / "styles.blade.php").read_text(encoding="utf-8")
-    assert styles_despues.count(".docker-blue") == styles_antes.count(".docker-blue") == 1
+    # Sesion 2 generada como destino final; sesion 1 intacta (CSS no duplicado)
+    assert (proyecto / "session2" / "comandos-basicos.blade.php").exists()
+    assert (proyecto / "session1" / "que-es-docker.blade.php").exists()
+    consolidated_css = (proyecto / "assets" / "styles_blade" / "css" / "sesion1_styles.blade.php").read_text(encoding="utf-8")
+    assert consolidated_css.count(".docker-blue") == antes.count(".docker-blue") == 1
     estado = json.loads((isolated_dir / po.STATE_FILE).read_text(encoding="utf-8"))
     assert all(f["estado"] == "completada" for f in (
-        estado["fases"]["pytest"], estado["fases"]["zip"]))
+        estado["fases"]["pytest"], estado["fases"]["cleanup"]))
+    assert "zip" not in estado["fases"]
 
 
 def test_resume_sin_corrida_activa_retorna_2(run_orchestrator, entorno):

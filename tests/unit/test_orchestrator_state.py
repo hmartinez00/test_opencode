@@ -17,9 +17,29 @@ def test_nuevo_estado_estructura_completa():
     assert estado["version"] == "1.0"
     assert estado["backend"] == "mock"
     assert estado["max_reintentos"] == 3
-    for fase in ("init", "save_plan", "pytest", "zip"):
+    for fase in ("init", "save_plan", "pytest", "cleanup"):
         assert estado["fases"][fase]["estado"] == "pendiente"
+    assert "cleanup" in estado["fases"]
+    assert "zip" not in estado["fases"]
     assert estado["fases"]["sesiones"] == []
+
+
+def test_normalizar_fases_zip_a_cleanup_completada():
+    estado = po.nuevo_estado("doc.md", "mock", 3)
+    estado["fases"].pop("cleanup")
+    estado["fases"]["zip"] = {"estado": "completada", "intentos": 1, "ultimo_error": None}
+    po.normalizar_fases(estado)
+    assert "zip" not in estado["fases"]
+    assert estado["fases"]["cleanup"]["estado"] == "completada"
+
+
+def test_normalizar_fases_zip_pendiente_a_cleanup_pendiente():
+    estado = po.nuevo_estado("doc.md", "mock", 3)
+    estado["fases"].pop("cleanup")
+    estado["fases"]["zip"] = {"estado": "en_curso", "intentos": 1, "ultimo_error": None}
+    po.normalizar_fases(estado)
+    assert "zip" not in estado["fases"]
+    assert estado["fases"]["cleanup"]["estado"] == "pendiente"
 
 
 def test_guardar_y_cargar_roundtrip(isolated_dir):

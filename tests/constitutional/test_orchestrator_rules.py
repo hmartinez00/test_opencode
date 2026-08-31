@@ -28,12 +28,9 @@ ARTEFACTOS_DEL_MOTOR = [
     "presentation_plan.json",
     "class_registry.json",
     "js_registry.json",
-    "manifest_draft.blade.php",
-    "styles.blade.php",
-    "scripts.blade.php",
-    "styles_additions",
-    "scripts_additions",
-    "manifest_additions",
+    "manifest.blade.php",
+    "session1",
+    "assets",
 ]
 
 
@@ -55,13 +52,18 @@ def test_orquestador_no_escribe_nada_fuera_de_su_whitelist(run_orchestrator, ent
     presentes = {p.name for p in isolated_dir.iterdir()}
     assert presentes == ARCHIVOS_RAIZ_PERMITIDOS
     assert not (isolated_dir / "outputs.zip").exists()
-    # Iteracion 005: outputs.zip vive DENTRO del directorio del proyecto, no en la raiz del maestro
-    assert (proyecto / "outputs.zip").exists()
+    # Iteracion 008: sin outputs.zip; el lote protegido + backup/fuente se conservan
+    assert not (proyecto / "outputs.zip").exists()
 
     for artefacto in ARTEFACTOS_DEL_MOTOR:
         assert (proyecto / artefacto).exists(), (
             f"Falta el artefacto generado por pra_helper: {artefacto}"
         )
+    # Respaldo de la fuente re-consolidable
+    assert (proyecto / "backup/fuente/sesion1").is_dir()
+    # Residuales de construccion ya eliminados
+    assert not (proyecto / "sesion1").exists()
+    assert not (proyecto / "manifest_draft.blade.php").exists()
 
 
 def test_plan_sin_sesiones_aborta_con_codigo_2(run_orchestrator, entorno, isolated_dir, monkeypatch):
@@ -82,27 +84,26 @@ def test_plan_sin_sesiones_aborta_con_codigo_2(run_orchestrator, entorno, isolat
     assert estado["fases"]["save_plan"]["intentos"] == 1
 
 
-def test_pytest_fallido_impide_el_empaquetado(run_orchestrator, entorno, isolated_dir, monkeypatch):
-    """Constitucion de calidad: sin suite verde no hay outputs.zip."""
+def test_pytest_fallido_impide_la_limpieza(run_orchestrator, entorno, isolated_dir, monkeypatch):
+    """Constitucion de calidad: sin suite verde no se llega a la fase cleanup."""
     monkeypatch.setattr(po, "_ejecutar_pytest", lambda: (1, COBERTURA_FALSA))
     codigo, _ = run_orchestrator("run", "documento_fuente.md", "--backend", "mock")
 
     assert codigo == 1
     estado = json.loads((isolated_dir / po.STATE_FILE).read_text(encoding="utf-8"))
     assert estado["fases"]["pytest"]["estado"] == "fallida"
-    assert estado["fases"]["zip"]["estado"] == "pendiente"
-    # Iteracion 005: outputs.zip debe estar dentro del proyecto, no en la raiz del maestro
+    assert estado["fases"]["cleanup"]["estado"] == "pendiente"
     proyecto = isolated_dir / po.OUTPUT_BASE_DIR / "intro_docker"
     assert not (proyecto / "outputs.zip").exists()
     assert not (isolated_dir / "outputs.zip").exists()
 
 
-def test_zip_fallido_reporta_codigo_1(run_orchestrator, entorno, isolated_dir, monkeypatch):
+def test_limpieza_fallida_reporta_codigo_1(run_orchestrator, entorno, isolated_dir, monkeypatch):
     real_run_helper = po.run_helper
 
     def run_helper_falso(*args):
-        if args and args[0] == "zip":
-            return 1, "", "error simulado de empaquetado"
+        if args and args[0] == "limpiar":
+            return 2, '{"ok": false}', "lote incompleto simulado"
         return real_run_helper(*args)
 
     monkeypatch.setattr(po, "run_helper", run_helper_falso)
@@ -110,7 +111,7 @@ def test_zip_fallido_reporta_codigo_1(run_orchestrator, entorno, isolated_dir, m
 
     assert codigo == 1
     estado = json.loads((isolated_dir / po.STATE_FILE).read_text(encoding="utf-8"))
-    assert estado["fases"]["zip"]["estado"] == "fallida"
+    assert estado["fases"]["cleanup"]["estado"] == "fallida"
 
 
 def test_init_fallido_por_motor_retorna_codigo_2(run_orchestrator, entorno, isolated_dir, monkeypatch):
