@@ -187,6 +187,24 @@ Características clave:
 
 ### Flujo Completo
 
+> **Directorio de salida**: Los proyectos generados se alojan bajo la ruta base
+> `C:\laragon\www\product_samples\slides` por defecto. Para usar otra ubicación,
+> configure la variable de entorno `PRA_OUTPUT_DIR` **antes** de iniciar:
+>
+> ```powershell
+> # PowerShell — override a ruta personalizada
+> $env:PRA_OUTPUT_DIR = "C:\ruta\a\mi\directorio"
+>
+> # Bash / Linux / Git Bash
+> export PRA_OUTPUT_DIR="/ruta/a/mi/directorio"
+> ```
+>
+> Si la ruta configurada (o la predeterminada) no existe, el sistema solicitará
+> interactivamente una ruta válida (máx. 3 intentos) o abortará con código 1
+> en entornos no interactivos. La variable define la ruta **base** donde se
+> crean todos los proyectos; el nombre de cada proyecto proviene del campo
+> `carpeta_snake_case` en el JSON del plan.
+
 ```bash
 # 1. Inicializar proyecto con documento fuente
 python pra_helper.py init documento_fuente.md > prompt_plan.txt
@@ -225,7 +243,7 @@ python pra_helper.py zip
 | `consolidate` | Consolida manifest, vistas y assets en la estructura final Laravel |
 | `zip` | Empaqueta el proyecto en `<directorio_proyecto>/outputs.zip` |
 
-> **Nota (iteración 005)**: los proyectos generados se crean bajo el subdirectorio maestro `C:\laragon\www\product_samples\slides`. La variable de entorno `PRA_OUTPUT_DIR` permite usar otra ruta; si la ruta configurada no existe, el sistema solicita interactivamente una ruta existente (en entornos no interactivos aborta con código 1). La búsqueda del proyecto activo prioriza ese subdirectorio y aplica un fallback sobre la raíz para proyectos legacy anteriores a esta iteración.
+> **Nota**: La búsqueda del proyecto activo prioriza el directorio maestro y aplica un fallback sobre la raíz del repositorio para proyectos legacy anteriores a la iteración 005. Ver la sección *Flujo Completo* arriba para cómo configurar `PRA_OUTPUT_DIR`.
 
 ### Ejemplo Práctico
 

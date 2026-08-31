@@ -104,7 +104,10 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
 ### Preservacion del Estado (Fuente de Verdad):
 * **No escribir directamente en registries ni combinar archivos Blade manualmente:** Los agentes deben invocar siempre el script `pra_helper.py` con los argumentos apropiados para delegar la creacion y actualizacion del proyecto. Esto asegura que la logica regex y de fusion de JSONs sea 100% precisa y determinista.
 * **Respetar el orden secuencial:** No se puede construir la Sesion $N$ si la Sesion $N-1$ no ha sido completada y sus cambios integrados con exito.
-* **Subdirectorio maestro (iteracion 005):** Todo proyecto generado se aloja bajo `C:\laragon\www\product_samples\slides` (overridable via variable de entorno `PRA_OUTPUT_DIR`); el entregable `outputs.zip` tambien se genera dentro de cada subdirectorio de proyecto. La raiz del repositorio debe permanecer limpia. Detalles: `specs/005-directorio-maestro-rutas-y-zip/`.
+* **Subdirectorio maestro (iteracion 005):** Todo proyecto generado se aloja bajo `C:\laragon\www\product_samples\slides` por defecto. La variable de entorno `PRA_OUTPUT_DIR` permite sobreescribir esta ruta base (NO es el nombre del proyecto; el nombre proviene de `carpeta_snake_case` en el plan JSON). El sistema crea el proyecto en `<PRA_OUTPUT_DIR>/<carpeta_snake_case>/`. Si la ruta configurada (o la predeterminada) no existe, el sistema solicita interactivamente una ruta valida (max. 3 intentos) o aborta con exit code 1 en entornos no interactivos. Sintaxis:
+    * PowerShell: `$env:PRA_OUTPUT_DIR = "C:\ruta\base"`
+    * Bash/Linux/Git Bash: `export PRA_OUTPUT_DIR="/ruta/base"`
+    * El entregable `outputs.zip` se genera dentro de cada subdirectorio de proyecto. La raiz del repositorio debe permanecer limpia. Detalles: `specs/005-directorio-maestro-rutas-y-zip/`.
 
 ### Garantia de Calidad (Suite de Pruebas):
 * **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (102 pruebas aprobadas en la verificacion final del repositorio) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
@@ -116,6 +119,17 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
 ## 4. Flujo de Trabajo del Agente
 
 Cuando el usuario solicite acciones sobre el flujo PRA, el agente que intervenga debe actuar bajo las siguientes fases:
+
+### Configuracion del Directorio de Salida (previo a cualquier fase):
+
+Antes de ejecutar cualquier comando del flujo PRA, el agente DEBE verificar y configurar el directorio donde se alojara el proyecto:
+
+1. **Ruta por defecto**: `C:\laragon\www\product_samples\slides`. Si esta ruta existe, no se requiere accion adicional.
+2. **Override manual**: Si el usuario indica una ubicacion diferente, configurar `PRA_OUTPUT_DIR` antes de ejecutar comandos:
+   * PowerShell: `$env:PRA_OUTPUT_DIR = "C:\ruta\a\directorio"`
+   * Bash/Linux/Git Bash: `export PRA_OUTPUT_DIR="/ruta/a/directorio"`
+3. **Comportamiento si la ruta no existe**: El sistema solicitara interactivamente una ruta valida (max. 3 intentos) o abortara con exit code 1 en entornos no interactivos.
+4. **Importante**: `PRA_OUTPUT_DIR` define la ruta **base** (contenedora); el nombre del proyecto proviene del campo `carpeta_snake_case` en el JSON del plan. El proyecto se creara en `<PRA_OUTPUT_DIR>/<carpeta_snake_case>/`.
 
 ### Fase de Inicializacion (`@pra iniciar`):
 1. Leer el documento fuente proporcionado por el usuario.
