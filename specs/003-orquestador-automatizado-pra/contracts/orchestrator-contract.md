@@ -92,3 +92,11 @@ Sin estado previo: codigo `2`.
 Este contrato es un **superset orquestador** del definido en `specs/001.../contracts/cli-contract.md`: lo consume sin modificarlo. Si el motor devuelve un codigo de salida distinto de 0, el orquestador clasifica:
 - Exit code del motor + STDERR -> alimenta la puerta de validacion y el prompt de reflexion.
 - Tras agotar `--max-retries` -> aborta con codigo `1` dejando la fase/sesion como `fallida` (reanudable).
+
+### Respuestas largas (iteracion 007/P4)
+
+Al delegar `process-session N '<respuesta>'`, si la respuesta supera el umbral `RESPUESTA_UMBRAL_CHARS` (default 30000 caracteres, por el limite de argv en Windows), `run_helper` la escribe a un archivo temporal y ejecuta `process-session N --respuesta-file <ruta>`. El archivo temporal se elimina en `finally`, incluso ante fallos del subproceso.
+
+### Seleccion de proyecto activo (iteracion 007/P5)
+
+`buscar_proyecto()` prioriza la variable de entorno `PRA_ACTIVE_PROJECT` dentro del directorio maestro; si la carpeta indicada no existe o no contiene `presentation_plan.json`, cae a la busqueda automatica (primer proyecto alfabetico).

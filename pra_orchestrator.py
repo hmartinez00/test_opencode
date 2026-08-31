@@ -340,14 +340,53 @@ def crear_backend(nombre, timeout_s=300):
 # ============================================================
 
 def run_helper(*args):
-    """Invoca un comando CLI de pra_helper.py; retorna (codigo, stdout, stderr)."""
-    proc = subprocess.run(
-        [sys.executable, str(HELPER_PATH), *args],
-        capture_output=True,
-    )
-    out = (proc.stdout or b"").decode(ENCODING, errors="replace")
-    err = (proc.stderr or b"").decode(ENCODING, errors="replace")
-    return proc.returncode, out, err
+    """Invoca un comando CLI de pra_helper.py; retorna (codigo, stdout, stderr).
+
+    Iteracion 007/P4: si el comando `process-session` recibe una respuesta
+    posicional que supera el umbral (limite de argv en Windows), se escribe a un
+    archivo temporal y se sustituye por `--respuesta-file <ruta>`, limpiando el
+    archivo en finally.
+    """
+    argv = list(args)
+    tmp_ruta = None
+    if argv and argv[0] == "process-session":
+        try:
+            argv, tmp_ruta = _preparar_process_session(argv)
+        except OSError as exc:
+            return 1, "", f"Error creando archivo temporal de respuesta: {exc}"
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(HELPER_PATH), *argv],
+            capture_output=True,
+        )
+        out = (proc.stdout or b"").decode(ENCODING, errors="replace")
+        err = (proc.stderr or b"").decode(ENCODING, errors="replace")
+        return proc.returncode, out, err
+    finally:
+        if tmp_ruta:
+            try:
+                os.remove(tmp_ruta)
+            except OSError:
+                pass
+
+
+RESPUESTA_UMBRAL_CHARS = 30000
+
+
+def _preparar_process_session(argv):
+    """Devuelve (argv_ajustado, tmp_ruta|None) sustituyendo la respuesta larga
+    posicional por --respuesta-file."""
+    if len(argv) < 3:
+        return argv, None
+    numero, respuesta = argv[1], argv[2]
+    if len(respuesta) <= RESPUESTA_UMBRAL_CHARS:
+        return argv, None
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", encoding=ENCODING, delete=False
+    ) as f:
+        f.write(respuesta)
+        ruta = f.name
+    return ["process-session", numero, "--respuesta-file", ruta], ruta
 
 
 def _ejecutar_pytest():
@@ -364,10 +403,18 @@ def _ejecutar_pytest():
 
 def buscar_proyecto():
     """Localiza el directorio activo buscando presentation_plan.json.
-    Prioriza el subdirectorio maestro (OUTPUT_BASE_DIR); si no hay proyectos
-    alli, aplica fallback sobre la raiz para proyectos legacy (iteracion 004)."""
+    Prioriza la variable PRA_ACTIVE_PROJECT (iteracion 007/P5) dentro del
+    subdirectorio maestro; si no hay proyectos alli, aplica fallback sobre la
+    raiz para proyectos legacy (iteracion 004)."""
     cwd = Path.cwd()
     base = _base_salida_candidata()
+
+    activo = os.environ.get("PRA_ACTIVE_PROJECT")
+    if activo and base.is_dir():
+        project = base / activo
+        if project.is_dir() and (project / "presentation_plan.json").exists():
+            return project
+
     scopes = [base] if base.resolve() == cwd.resolve() else [base, cwd]
     for scope in scopes:
         if not scope.is_dir():

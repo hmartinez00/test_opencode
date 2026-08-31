@@ -108,11 +108,12 @@
 
 **Proposito**: Procesa la respuesta del LLM para una sesion, escribiendo los archivos Blade de laminas, acumulando estilos/scripts y actualizando los registros de forma determinista.
 
-**Sintaxis**: `python pra_helper.py --process-session <N> <respuesta_llm>`
+**Sintaxis**: `python pra_helper.py --process-session <N> <respuesta_llm> [--respuesta-file <ruta>]`
 
 **Argumentos**:
 - `<N>` (requerido): Numero de la sesion que se esta procesando (entero positivo).
-- `<respuesta_llm>` (requerido): Cadena completa con la respuesta generada por el LLM, que contiene los bloques de laminas, estilos, scripts y actualizaciones de registros.
+- `<respuesta_llm>` (opcional si se usa `--respuesta-file`): Cadena completa con la respuesta generada por el LLM, que contiene los bloques de laminas, estilos, scripts y actualizaciones de registros.
+- `--respuesta-file <ruta>` (opcional, iteracion 007): Ruta a un archivo que contiene la respuesta del LLM. Prevalece sobre `<respuesta_llm>` cuando se proveen ambos. Permite procesar respuestas muy largas que en Windows superarian el limite de argumentos (`WinError 206`).
 
 **Comportamiento**:
 1. Parsea la respuesta del LLM identificando los bloques delimitados (laminas, estilos, scripts, actualizaciones de registros).

@@ -108,10 +108,13 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
     * PowerShell: `$env:PRA_OUTPUT_DIR = "C:\ruta\base"`
     * Bash/Linux/Git Bash: `export PRA_OUTPUT_DIR="/ruta/base"`
     * El entregable `outputs.zip` se genera dentro de cada subdirectorio de proyecto. La raiz del repositorio debe permanecer limpia. Detalles: `specs/005-directorio-maestro-rutas-y-zip/`.
+* **Proyecto activo (iteracion 007):** La variable de entorno `PRA_ACTIVE_PROJECT` permite seleccionar explicita y deterministicamente el proyecto activo entre varios alojados en el directorio maestro. Debe contener el valor `carpeta_snake_case` del proyecto (ej. `modulo3_estructuras_datos`). Si la carpeta indicada no existe, se cae al comportamiento actual (busqueda automatica). Sintaxis:
+    * PowerShell: `$env:PRA_ACTIVE_PROJECT = "nombre_proyecto"`
+    * Bash/Linux/Git Bash: `export PRA_ACTIVE_PROJECT="nombre_proyecto"`
 
 ### Garantia de Calidad (Suite de Pruebas):
-* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (102 pruebas aprobadas en la verificacion final del repositorio) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
-* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%. La verificacion final actual reporta 88% y 87% respectivamente.
+* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (119 pruebas aprobadas en la verificacion final del repositorio) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
+* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%. La verificacion final actual reporta 88% y 85% respectivamente.
 * **Nuevas funcionalidades requieren nuevas pruebas:** Todo cambio o feature en el motor o el orquestador debe incluir pruebas unitarias, de integracion o constitucionales segun corresponda, siguiendo la especificacion de `specs/002-sistema-testing-pra/`.
 
 ---
@@ -130,6 +133,7 @@ Antes de ejecutar cualquier comando del flujo PRA, el agente DEBE verificar y co
    * Bash/Linux/Git Bash: `export PRA_OUTPUT_DIR="/ruta/a/directorio"`
 3. **Comportamiento si la ruta no existe**: El sistema solicitara interactivamente una ruta valida (max. 3 intentos) o abortara con exit code 1 en entornos no interactivos.
 4. **Importante**: `PRA_OUTPUT_DIR` define la ruta **base** (contenedora); el nombre del proyecto proviene del campo `carpeta_snake_case` en el JSON del plan. El proyecto se creara en `<PRA_OUTPUT_DIR>/<carpeta_snake_case>/`.
+5. **Proyecto activo (opcional)**: Si hay varios proyectos bajo la ruta base, se puede fijar el activo con `PRA_ACTIVE_PROJECT=<carpeta_snake_case>` (PowerShell: `$env:PRA_ACTIVE_PROJECT = "proyecto"`; Bash: `export PRA_ACTIVE_PROJECT="proyecto"`). Sin la variable, se usa la busqueda automatica (directorio actual si es proyecto, luego el primero alfabetico del base).
 
 ### Fase de Inicializacion (`@pra iniciar`):
 1. Leer el documento fuente proporcionado por el usuario.
@@ -140,7 +144,7 @@ Antes de ejecutar cualquier comando del flujo PRA, el agente DEBE verificar y co
 1. Consultar `class_registry.json` y `js_registry.json` vigentes.
 2. Ejecutar `python pra_helper.py prompt-session <N>` para compilar el prompt adaptado.
 3. Enviar el prompt compilado al LLM de OpenCode.
-4. Tomar la respuesta completa del LLM y pasarla a `python pra_helper.py process-session <N> '<respuesta_llm>'`.
+4. Tomar la respuesta completa del LLM y pasarla a `python pra_helper.py process-session <N> '<respuesta_llm>'`. Si la respuesta supera ~30000 caracteres (limite de argv en Windows / `WinError 206`), escribirla a un archivo y usar `python pra_helper.py process-session <N> --respuesta-file <ruta>` en su lugar.
 5. Confirmar al usuario los archivos Blade creados y los nuevos estilos/scripts agregados.
 
 ### Fase de Consolidacion (`python pra_helper.py consolidate`):

@@ -239,11 +239,13 @@ python pra_helper.py zip
 | `init <doc>` | Lee documento fuente y genera prompt del Plan Maestro |
 | `save-plan <json>` | Guarda plan maestro, inicializa registros y crea estructura |
 | `prompt-session <N>` | Compila prompt adaptado para la generación de laminas de la sesión N |
-| `process-session <N> <r>` | Procesa respuesta del LLM y escribe archivos Blade |
+| `process-session <N> <r> [--respuesta-file <ruta>]` | Procesa respuesta del LLM y escribe archivos Blade |
 | `consolidate` | Consolida manifest, vistas y assets en la estructura final Laravel |
 | `zip` | Empaqueta el proyecto en `<directorio_proyecto>/outputs.zip` |
 
 > **Nota**: La búsqueda del proyecto activo prioriza el directorio maestro y aplica un fallback sobre la raíz del repositorio para proyectos legacy anteriores a la iteración 005. Ver la sección *Flujo Completo* arriba para cómo configurar `PRA_OUTPUT_DIR`.
+
+> **Iteración 007**: El comando `process-session` acepta `--respuesta-file <ruta>` para procesar respuestas LLM muy largas que superan el límite de argumentos en Windows (`WinError 206`); si se provee, prevalece sobre el argumento posicional. La variable de entorno `PRA_ACTIVE_PROJECT` permite seleccionar explícitamente el proyecto activo (`<carpeta_snake_case>`) entre varios alojados en el directorio maestro.
 
 ### Ejemplo Práctico
 

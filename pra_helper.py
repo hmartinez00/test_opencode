@@ -32,6 +32,36 @@ FOLDER_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 INLINE_STYLE_PATTERN = re.compile(r'style\s*=\s*["\']')
 REGISTRY_CLASS_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 DEFAULT_OUTPUT_BASE_DIR = Path(r"C:\laragon\www\product_samples\slides")
+ENTRYPOINT_PREFIX = "presentation.slides.{$presentation->folder_name}"
+WRAP_STYLE_TAG = "<style>"
+WRAP_SCRIPT_TAG = "<script>"
+
+
+def titulo_legible(id_kebab_case):
+    """Convierte un id kebab-case en un titulo legible (P6).
+
+    Ejemplo: 's1-listas-teoria' -> 'S1 Listas Teoria'.
+    """
+    parts = str(id_kebab_case).split("-")
+    return " ".join(part.capitalize() for part in parts)
+
+
+def _envolver_fragmento(tipo, contenido):
+    """Envuelve un fragmento de asset en su etiqueta correspondiente (P2, P3).
+
+    - 'css' -> <style> ... </style>
+    - 'js'  -> <script> ... </script>
+    Es idempotente: si el contenido ya vienen envuelto, no se repite la etiqueta.
+    """
+    if tipo == "css":
+        abrir, cerrar = WRAP_STYLE_TAG, "</style>"
+    else:
+        abrir, cerrar = WRAP_SCRIPT_TAG, "</script>"
+
+    texto = str(contenido).strip()
+    if not (texto.startswith(abrir) and texto.endswith(cerrar)):
+        return f"{abrir}\n{texto}\n{cerrar}"
+    return texto
 
 
 def _base_salida_candidata():
@@ -365,12 +395,19 @@ def cmd_save_plan(args):
 
 def find_project_dir():
     """Busca el directorio del proyecto activo buscando presentation_plan.json.
-    Prioriza el directorio actual si ya es un proyecto valido, luego el
-    subdirectorio maestro (OUTPUT_BASE_DIR) y solo despues un fallback a la
-    raiz para proyectos legacy (iteracion 004)."""
+    Prioriza la variable PRA_ACTIVE_PROJECT (iteracion 007/P5), luego el
+    directorio actual si ya es un proyecto valido, luego el subdirectorio
+    maestro (OUTPUT_BASE_DIR) y solo despues un fallback a la raiz para
+    proyectos legacy (iteracion 004)."""
     cwd = Path.cwd()
     base = _base_salida_candidata()
     scopes = []
+
+    activo = os.environ.get("PRA_ACTIVE_PROJECT")
+    if activo and base.is_dir():
+        project = base / activo
+        if (project / "presentation_plan.json").exists():
+            scopes.append(project)
 
     if cwd.is_dir() and (cwd / "presentation_plan.json").exists():
         scopes.append(cwd)
@@ -532,10 +569,30 @@ def parse_llm_response(response_text):
     return blocks
 
 
+def _respuesta_de_args(args):
+    """Resuelve la respuesta del LLM desde --respuesta-file o el posicional (P4).
+
+    Precedencia (documentada): --respuesta-file gana sobre el posicional.
+    """
+    if args.respuesta_file:
+        ruta = Path(args.respuesta_file)
+        if not ruta.exists():
+            print(json.dumps({
+                "error": f"No se encontro el archivo de respuesta: {args.respuesta_file}",
+                "codigo": "RESPUESTA_FILE_NOT_FOUND",
+            }))
+            sys.exit(1)
+        return ruta.read_text(encoding=ENCODING)
+    return args.respuesta_llm
+
+
 def cmd_process_session(args):
     """Procesa la respuesta del LLM y escribe archivos de la sesion."""
     n = args.n
-    response_text = args.respuesta_llm
+    response_text = _respuesta_de_args(args)
+    if not response_text:
+        print(json.dumps({"error": "Respuesta LLM vacia o faltante. Provea <respuesta_llm> o --respuesta-file"}))
+        sys.exit(1)
     project_dir = find_project_dir()
 
     if not project_dir:
@@ -742,7 +799,7 @@ def _consolidate_project(project_dir):
                 errors.append(f"Lamina duplicada: session{number}.{slide_id}")
                 continue
             references.add(identity)
-            data_title = lamina.get("data_title") or lamina.get("titulo") or slide_id
+            data_title = lamina.get("data_title") or lamina.get("titulo") or titulo_legible(slide_id)
             slides.append((slide_id, data_title))
         final_sessions.append((number, sesion.get("titulo", ""), slides))
 
@@ -755,19 +812,19 @@ def _consolidate_project(project_dir):
     css_includes = []
     for addition in sorted((project_dir / "styles_additions").glob("sesion*_styles.css")):
         target = css_dir / f"{addition.stem}.blade.php"
-        target.write_text(addition.read_text(encoding=ENCODING), encoding=ENCODING)
+        target.write_text(_envolver_fragmento("css", addition.read_text(encoding=ENCODING)), encoding=ENCODING)
         css_includes.append(target.relative_to(project_dir).as_posix().removesuffix(".blade.php").replace("/", "."))
     js_includes = []
     for addition in sorted((project_dir / "scripts_additions").glob("sesion*_scripts.js")):
         target = js_dir / f"{addition.stem}.blade.php"
-        target.write_text(addition.read_text(encoding=ENCODING), encoding=ENCODING)
+        target.write_text(_envolver_fragmento("js", addition.read_text(encoding=ENCODING)), encoding=ENCODING)
         js_includes.append(target.relative_to(project_dir).as_posix().removesuffix(".blade.php").replace("/", "."))
 
     styles_entry = ["{{-- Estilos consolidados - Generado por PRA --}}"]
-    styles_entry.extend(f'@include("presentation.slides.{{{{$presentation->folder_name}}}}.{include}")' for include in css_includes)
+    styles_entry.extend(f'@include("{ENTRYPOINT_PREFIX}.{include}")' for include in css_includes)
     (assets_dir / "styles.blade.php").write_text("\n".join(styles_entry) + "\n", encoding=ENCODING)
     scripts_entry = ["{{-- Scripts consolidados - Generado por PRA --}}"]
-    scripts_entry.extend(f'@include("presentation.slides.{{{{$presentation->folder_name}}}}.{include}")' for include in js_includes)
+    scripts_entry.extend(f'@include("{ENTRYPOINT_PREFIX}.{include}")' for include in js_includes)
     (assets_dir / "scripts.blade.php").write_text("\n".join(scripts_entry) + "\n", encoding=ENCODING)
 
     manifest = [
@@ -790,11 +847,11 @@ def _consolidate_project(project_dir):
         "@endsection",
         "",
         "@push('styles')",
-        '    @include("presentation.slides.{{$presentation->folder_name}}.assets.styles")',
+        f'    @include("{ENTRYPOINT_PREFIX}.assets.styles")',
         "@endpush",
         "",
         "@push('scripts')",
-        '    @include("presentation.slides.{{$presentation->folder_name}}.assets.scripts")',
+        f'    @include("{ENTRYPOINT_PREFIX}.assets.scripts")',
         "@endpush",
         "",
     ])
@@ -915,7 +972,8 @@ def main():
 
     process_parser = subparsers.add_parser("process-session")
     process_parser.add_argument("n", type=int, help="Numero de sesion")
-    process_parser.add_argument("respuesta_llm", help="Respuesta completa del LLM")
+    process_parser.add_argument("respuesta_llm", nargs="?", default=None, help="Respuesta completa del LLM")
+    process_parser.add_argument("--respuesta-file", help="Ruta a archivo con la respuesta LLM")
 
     subparsers.add_parser("consolidate")
     subparsers.add_parser("zip")

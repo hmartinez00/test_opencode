@@ -114,3 +114,39 @@ def test_sesiones_del_plan_lee_numeros(isolated_dir):
     assert po.sesiones_del_plan() == []
     crear_proyecto(isolated_dir)
     assert [s["numero"] for s in po.sesiones_del_plan()] == [1]
+
+
+def test_buscar_proyecto_respeta_pra_active_project(isolated_dir, monkeypatch):
+    """P5: PRA_ACTIVE_PROJECT prioriza el proyecto indicado sobre el primero alfabetico."""
+    crear_proyecto(isolated_dir, laminas=["a"])
+    # crear un segundo proyecto (proyecto_zzz) que alfabeticamente iria despues
+    p2 = isolated_dir / po.OUTPUT_BASE_DIR / "proyecto_zzz"
+    p2.mkdir(parents=True)
+    (p2 / "presentation_plan.json").write_text('{"sesiones": []}', encoding="utf-8")
+    # el primer alfabetico es intro_docker; sin variable devolveria intro_docker
+    assert po.buscar_proyecto().name == "intro_docker"
+    monkeypatch.setenv("PRA_ACTIVE_PROJECT", "proyecto_zzz")
+    assert po.buscar_proyecto().name == "proyecto_zzz"
+
+
+def test_preparar_process_session_corto_no_usa_archivo():
+    argv, tmp = po._preparar_process_session(["process-session", "1", "corto"])
+    assert tmp is None
+    assert argv == ["process-session", "1", "corto"]
+
+
+def test_preparar_process_session_largo_usa_archivo_y_limpia():
+    largo = "x" * (po.RESPUESTA_UMBRAL_CHARS + 1000)
+    argv, tmp = po._preparar_process_session(["process-session", "1", largo])
+    import os
+    try:
+        assert tmp is not None
+        assert argv[0] == "process-session"
+        assert argv[2] == "--respuesta-file"
+        assert os.path.exists(argv[3])
+        with open(argv[3], encoding="utf-8") as f:
+            assert f.read() == largo
+    finally:
+        if tmp:
+            os.remove(tmp)
+    assert not os.path.exists(tmp)
