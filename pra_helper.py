@@ -31,10 +31,15 @@ KEBAB_PATTERN = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 FOLDER_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 INLINE_STYLE_PATTERN = re.compile(r'style\s*=\s*["\']')
 REGISTRY_CLASS_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+AUDIO_MARKER_PATTERN = re.compile(r"^\s*\[slide:\s*(\d+)\]\s*(.*)$")
 DEFAULT_OUTPUT_BASE_DIR = Path(r"C:\laragon\www\product_samples\slides")
 ENTRYPOINT_PREFIX = "presentation.slides.{$presentation->folder_name}"
 WRAP_STYLE_TAG = "<style>"
 WRAP_SCRIPT_TAG = "<script>"
+
+
+class AudioNarrationError(ValueError):
+    """La narración no respeta el formato de marcas por lámina."""
 
 
 def titulo_legible(id_kebab_case):
@@ -245,6 +250,71 @@ def normalize_plan(plan):
             s["laminas"].append(l)
         normalized["sesiones"].append(s)
     return normalized
+
+
+def parse_guion_narrativo(guion):
+    """Parsea texto marcado como [slide: N] en entradas narrativas."""
+    entradas = []
+    actual = None
+    preambulo = []
+    for linea in str(guion).splitlines():
+        match = AUDIO_MARKER_PATTERN.match(linea)
+        if match:
+            if actual is not None:
+                actual["texto"] = "\n".join(actual["_lineas"]).strip()
+                del actual["_lineas"]
+                entradas.append(actual)
+            actual = {"slide": int(match.group(1)), "_lineas": []}
+            if match.group(2):
+                actual["_lineas"].append(match.group(2))
+        elif actual is None:
+            if linea.strip():
+                preambulo.append(linea.strip())
+        else:
+            actual["_lineas"].append(linea)
+
+    if actual is not None:
+        actual["texto"] = "\n".join(actual["_lineas"]).strip()
+        del actual["_lineas"]
+        entradas.append(actual)
+    if preambulo:
+        raise AudioNarrationError("El guion contiene texto sin marca [slide: N]")
+    if not entradas:
+        raise AudioNarrationError("El guion no contiene marcas [slide: N]")
+    return entradas
+
+
+def validar_guion_narrativo(guion, sesion):
+    """Valida referencias narrativas contra las láminas ordenadas de una sesión."""
+    entradas = parse_guion_narrativo(guion)
+    reporte = {"faltantes": [], "huerfanas": [], "duplicadas": [], "vacias": [], "advertencias": []}
+    laminas = sorted(sesion.get("laminas", []), key=lambda item: item.get("orden", 0))
+    esperadas = set(range(len(laminas)))
+    vistas = {}
+    for entrada in entradas:
+        indice = entrada["slide"]
+        vistas[indice] = vistas.get(indice, 0) + 1
+        if indice not in esperadas:
+            reporte["huerfanas"].append({"slide": indice, "detalle": "No existe una lámina correspondiente"})
+        if not entrada["texto"].strip():
+            reporte["vacias"].append(indice)
+    reporte["duplicadas"] = sorted(indice for indice, veces in vistas.items() if veces > 1)
+    reporte["faltantes"] = [
+        {"slide": indice, "id": laminas[indice].get("id_kebab_case", "")}
+        for indice in sorted(esperadas - set(vistas))
+    ]
+    for entrada in entradas:
+        if entrada["slide"] not in esperadas or not entrada["texto"].strip():
+            continue
+        objetivo = laminas[entrada["slide"]].get("objetivo", "")
+        palabras = [p.lower() for p in re.findall(r"[a-záéíóúñ]{5,}", objetivo)]
+        texto = entrada["texto"].lower()
+        if palabras and not any(palabra in texto for palabra in palabras):
+            reporte["advertencias"].append({
+                "slide": entrada["slide"],
+                "detalle": "La narración no contiene señales del objetivo de la lámina",
+            })
+    return reporte
 
 
 def get_project_dir(plan, interactive=False):
@@ -588,18 +658,19 @@ def cmd_prompt_session(args):
 # ============================================================
 
 def parse_llm_response(response_text):
-    """Parsea la respuesta del LLM en 5 bloques delimitados."""
+    """Parsea la respuesta del LLM en los bloques de una sesión."""
     blocks = {
         "laminas": [],
         "estilos_css": "",
         "scripts_js": "",
         "manifest_entries": [],
+        "guion_narrativo": "",
         "registry_updates": {"nuevas_clases": [], "clases_materializadas": [],
                              "nuevos_comportamientos": [], "comportamientos_materializados": []},
     }
 
     blade_pattern = re.compile(
-        r"\{\{-+\s*sesion\d+/([\w-]+)\.blade\.php\s*-+\}\}\s*\n(.*?)(?=\{\{-+\s*sesion\d+/|\*\*BLOQUE\s+[2345]|$)",
+        r"\{\{-+\s*sesion\d+/([\w-]+)\.blade\.php\s*-+\}\}\s*\n(.*?)(?=\{\{-+\s*sesion\d+/|\*\*BLOQUE\s+[23456]|$)",
         re.DOTALL
     )
     for match in blade_pattern.finditer(response_text):
@@ -616,6 +687,14 @@ def parse_llm_response(response_text):
     js_match = js_pattern.search(response_text)
     if js_match:
         blocks["scripts_js"] = js_match.group(1).strip()
+
+    audio_pattern = re.compile(
+        r"\*\*BLOQUE\s+6[^\n]*\n```(?:text|txt)?\s*\n?(.*?)```",
+        re.IGNORECASE | re.DOTALL,
+    )
+    audio_match = audio_pattern.search(response_text)
+    if audio_match:
+        blocks["guion_narrativo"] = audio_match.group(1).strip()
 
     manifest_pattern = re.compile(r'<x-slide\s+[^>]*view="([^"]+)"(?:[^>]*?data-title="([^"]+)")?[^>]*/>')
     for m in manifest_pattern.finditer(response_text):
@@ -704,6 +783,24 @@ def cmd_process_session(args):
         print(json.dumps({"error": "No se pudieron parsear laminas de la respuesta LLM"}))
         sys.exit(1)
 
+    audio_report = None
+    if blocks["guion_narrativo"]:
+        try:
+            audio_report = validar_guion_narrativo(blocks["guion_narrativo"], sesion)
+        except AudioNarrationError as error:
+            print(json.dumps({"error": str(error), "audio": {"errores": [str(error)]}}, ensure_ascii=False))
+            sys.exit(2)
+        errores_audio = any(audio_report[key] for key in ("faltantes", "huerfanas", "duplicadas", "vacias"))
+        if errores_audio and os.environ.get("PRA_AUDIO_ESTRICTO") == "1":
+            print(json.dumps({"error": "Validacion estricta de audio", "audio": audio_report}, ensure_ascii=False))
+            sys.exit(2)
+    elif os.environ.get("PRA_AUDIO_ESTRICTO") == "1":
+        print(json.dumps({
+            "error": "Falta el BLOQUE 6 de guion narrativo",
+            "audio": {"errores": ["BLOQUE 6 ausente"]},
+        }, ensure_ascii=False))
+        sys.exit(2)
+
     violations = []
     created_files = []
     sesion_dir = project_dir / f"sesion{n}"
@@ -748,6 +845,20 @@ def cmd_process_session(args):
         scripts_additions = project_dir / "scripts_additions" / f"sesion{n}_scripts.js"
         scripts_additions.write_text(js_content, encoding=ENCODING)
         created_files.append(str(scripts_additions))
+
+    audio_payload = {"archivo": f"assets/audio/guion_sesion{n}.txt"}
+    if audio_report is not None:
+        audio_dir = project_dir / "assets" / "audio"
+        audio_dir.mkdir(parents=True, exist_ok=True)
+        audio_path = audio_dir / f"guion_sesion{n}.txt"
+        audio_path.write_text(blocks["guion_narrativo"] + "\n", encoding=ENCODING)
+        backup_audio = project_dir / "backup" / "fuente" / "assets" / "audio"
+        backup_audio.mkdir(parents=True, exist_ok=True)
+        (backup_audio / audio_path.name).write_text(
+            blocks["guion_narrativo"] + "\n", encoding=ENCODING
+        )
+        created_files.extend([str(audio_path), str(backup_audio / audio_path.name)])
+        audio_payload["reporte"] = audio_report
 
     class_registry_path = project_dir / "class_registry.json"
     js_registry_path = project_dir / "js_registry.json"
@@ -830,6 +941,7 @@ def cmd_process_session(args):
         "clases_agregadas": added_classes,
         "comportamientos_agregados": added_js,
         "violaciones_css_inline": 0,
+        "audio": audio_payload,
     }
     print(json.dumps(result, ensure_ascii=False, indent=JSON_INDENT))
     sys.exit(0)
@@ -852,6 +964,44 @@ def _consolidate_project(project_dir):
                 *[f"huerfanas={len(coherencia['huerfanas'])}", f"faltantes={len(coherencia['faltantes'])}", f"duplicadas={len(coherencia['duplicadas'])}"],
             ],
             "coherencia": coherencia,
+            "manifest": None,
+            "sesiones": [],
+            "laminas_materializadas": 0,
+            "includes_css": 0,
+            "includes_js": 0,
+        }
+
+    audio_reportes = []
+    audio_errors = []
+    for sesion in plan.get("sesiones", []):
+        numero = sesion.get("numero")
+        audio_path = project_dir / "assets" / "audio" / f"guion_sesion{numero}.txt"
+        if not audio_path.exists():
+            continue
+        try:
+            audio_report = validar_guion_narrativo(
+                audio_path.read_text(encoding=ENCODING), sesion
+            )
+        except (OSError, AudioNarrationError) as error:
+            audio_report = {"errores": [str(error)]}
+        audio_reportes.append({"sesion": numero, **audio_report})
+        if any(audio_report.get(key) for key in ("faltantes", "huerfanas", "duplicadas", "vacias")):
+            audio_errors.extend(audio_report.get(key, []) for key in ("faltantes", "huerfanas", "duplicadas", "vacias"))
+        if audio_report.get("errores"):
+            audio_errors.append(audio_report["errores"])
+    audio_summary = {
+        "sesiones": audio_reportes,
+        "faltantes": [item for reporte in audio_reportes for item in reporte.get("faltantes", [])],
+        "huerfanas": [item for reporte in audio_reportes for item in reporte.get("huerfanas", [])],
+        "duplicadas": [item for reporte in audio_reportes for item in reporte.get("duplicadas", [])],
+        "vacias": [item for reporte in audio_reportes for item in reporte.get("vacias", [])],
+        "advertencias": [item for reporte in audio_reportes for item in reporte.get("advertencias", [])],
+    }
+    if audio_errors and os.environ.get("PRA_AUDIO_ESTRICTO", "1") == "1":
+        return {
+            "ok": False,
+            "errores": ["Incoherencia audiovisual detectada"],
+            "audio": audio_summary,
             "manifest": None,
             "sesiones": [],
             "laminas_materializadas": 0,
@@ -952,6 +1102,7 @@ def _consolidate_project(project_dir):
         "laminas_materializadas": sum(len(slides) for _, _, slides in final_sessions),
         "includes_css": len(css_includes),
         "includes_js": len(js_includes),
+        "audio": audio_summary,
         "errores": errors,
     }
 
@@ -1034,6 +1185,12 @@ def _limpiar_proyecto(project_dir):
                 destino = origen_fuente / rel
                 shutil.copyfile(origen, destino)
                 reporte["protegidos"].append(f"backup/fuente/{rel}")
+
+        audio_dir = project_dir / "assets" / "audio"
+        if audio_dir.is_dir():
+            destino = origen_fuente / "assets" / "audio"
+            shutil.copytree(audio_dir, destino, dirs_exist_ok=True)
+            reporte["protegidos"].append("backup/fuente/assets/audio")
 
     # Fase B - Puerta protectora del lote
     faltantes = _lote_protegido_completo(project_dir)

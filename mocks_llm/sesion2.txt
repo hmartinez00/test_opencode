@@ -35,3 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
   "comportamientos_materializados": []
 }
 ```
+
+**BLOQUE 6 — Guion de narración**
+```text
+[slide: 0] En esta sesión presentamos los comandos básicos para ejecutar, consultar y detener contenedores.
+```

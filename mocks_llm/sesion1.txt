@@ -48,3 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
   "comportamientos_materializados": ["ripple-effect"]
 }
 ```
+
+**BLOQUE 6 — Guion de narración**
+```text
+[slide: 0] En esta primera lámina presentamos qué es Docker y el contexto de la plataforma.
+[slide: 1] A continuación explicamos la arquitectura de Docker con sus componentes principales.
+```

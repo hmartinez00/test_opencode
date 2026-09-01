@@ -35,6 +35,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 
+from pra_helper import AudioNarrationError, validar_guion_narrativo
+
 ENCODING = "utf-8"
 STATE_FILE = "orchestration_state.json"
 LOG_FILE = "orchestration_log.txt"
@@ -513,6 +515,7 @@ def validar_post_sesion(numero):
         "exit_code_ok": True,
         "sin_css_inline": True,
         "laminas_faltantes": [],
+        "audio": None,
         "detalle": "",
     }
     project_dir = buscar_proyecto()
@@ -544,15 +547,30 @@ def validar_post_sesion(numero):
                 reporte["sin_css_inline"] = False
                 reporte["detalle"] += f"CSS inline detectado en {blade.name}; "
     reporte["laminas_faltantes"] = [lid for lid in esperadas if lid and lid not in presentes]
+    audio_path = project_dir / "assets" / "audio" / f"guion_sesion{numero}.txt"
+    if audio_path.exists():
+        try:
+            reporte["audio"] = validar_guion_narrativo(
+                audio_path.read_text(encoding=ENCODING), sesion or {}
+            )
+        except (OSError, AudioNarrationError) as error:
+            reporte["audio"] = {"errores": [str(error)]}
+        if any(reporte["audio"].get(key) for key in ("faltantes", "huerfanas", "duplicadas", "vacias", "errores")):
+            reporte["detalle"] += "Guion narrativo incoherente; "
     return reporte
 
 
 def reporte_valido(reporte):
     """La puerta se supera solo si todas las validaciones pasan."""
+    audio = reporte.get("audio")
+    audio_ok = audio is None or not any(
+        audio.get(key) for key in ("faltantes", "huerfanas", "duplicadas", "vacias", "errores")
+    )
     return (
         reporte["exit_code_ok"]
         and reporte["sin_css_inline"]
         and not reporte["laminas_faltantes"]
+        and audio_ok
     )
 
 
@@ -699,6 +717,8 @@ class Orquestador:
                     incumplidas.append(
                         "Laminas faltantes: " + ", ".join(reporte["laminas_faltantes"])
                     )
+                if reporte.get("audio") and not reporte_valido(reporte):
+                    incumplidas.append("Guion narrativo incoherente")
                 motivo = "; ".join(incumplidas)
                 detalle = reporte["detalle"].strip() or motivo
                 self._log_intento(nombre_fase, intento, False, motivo, t0)
