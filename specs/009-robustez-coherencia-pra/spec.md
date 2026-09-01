@@ -1,145 +1,180 @@
-# Especificacion de Funcionalidad: Robustez y Coherencia del Flujo PRA (009-robustez-coherencia-pra)
+# Especificación funcional: Robustez y coherencia del flujo PRA
 
-**Rama de Funcionalidad**: `009-robustez-coherencia-pra`
+**Rama funcional**: `009-robustez-coherencia-pra`
+**Estado**: Especificación previa a implementación
+**Fecha**: 2026-09-01
 
-**Fecha de Creacion**: 2026-08-31
+## 1. Resumen ejecutivo
 
-**Estado**: Borrador
+Esta especificación define la segunda capa de robustez del flujo PRA, tras la consolidación inicial y la validación básica de calidad de salida. El objetivo no es introducir nuevas capacidades de presentación, sino asegurar que el sistema detecte, informe y bloquee errores de coherencia ocultos antes de entregar un proyecto final.
 
-**Entrada**: Al levantar una presentacion real (modulo1_fundamentos_python) mediante el flujo manual de PRA se detectaron varios inconvenientes que debilitan la robustez del flujo y la confiabilidad del entregable:
+Los problemas detectados y documentados en la fase previa no son fallos de redacción sino errores de flujo real:
 
-1. **Lamina fuera del plan ignorada silenciosamente**: el consolidador (`_consolidate_project`) itera exclusivamente sobre las laminas declaradas en `presentation_plan.json`, de modo que una lamina escrita en `sesion[N]/` que NO este declarada en el plan se omite del `manifest.blade.php` sin advertencia. En la corrida real, `conversion-tipos`, `entorno-colab` y `manipulacion-strings` no aparecieron en el manifest (solo se resolvio tras editar manualmente el plan).
-2. **Plan guardado sin registros ni insumos**: un `save-plan` que solo envie la Parte 1 (JSON de sesiones) deja `class_registry.json` y `js_registry.json` vacios y todos los `insumos` de las laminas como lista vacia. El constructor de sesiones carece de vocabulario visual planificado y de insumos a materializar, debilitando la fidelidad al documento fuente.
-3. **Backend `opencode` del orquestador no resuelve el binario**: `pra_orchestrator.py run ... --backend opencode` reporto `CLI 'opencode' no encontrada en PATH`, a pesar de que el binario esta en `C:\Users\HP\.opencode\bin\opencode.exe` y se resuelve desde Python en pruebas aisladas. La causa es una discrepancia del PATH heredado por el subprocess del orquestador.
-4. **Seleccion de proyecto activo ambigua**: con varios proyectos bajo la ruta base y sin `PRA_ACTIVE_PROJECT`, la busqueda automatica selecciono `intro_docker` en lugar del proyecto recien creado (`modulo1_fundamentos_python`), provocando que `prompt-session` leyera el plan equivocado.
+- laminas generadas fuera del plan se omitían silenciosamente,
+- el plan podía guardarse sin registros y sin insumos mínimamente definidos,
+- el backend `opencode` podía fallar por resolución de ruta y PATH,
+- la selección de proyecto activo podía operar sobre un proyecto incorrecto cuando había ambigüedad.
 
-Esta iteracion introduce las salvaguardas y validaciones necesarias para que estos fallos sean detectados, reportados de forma estructurada y, cuando corresponda, abortados con un mensaje claro en lugar de fallar en silencio.
-
----
-
-## Objetivo
-
-Endurecer el flujo PRA frente a los cuatro inconvenientes detectados:
-
-1. **Coherencia plan vs. laminas en consolidacion**: el consolidador debe detectar y reportar laminas huerfanas (escritas en `sesion[N]/` pero no declaradas en el plan), laminas faltantes (declaradas en el plan pero no escritas) y laminas duplicadas, devolviendo un reporte estructurado. Ante una incoherencia bloqueante, la consolidacion aborta sin generar un manifest incompleto.
-2. **Calidad minima del plan al guardar**: `save-plan` debe validar que el plan incluya registros CSS/JS no vacios y que cada lamina tenga `insumos` materizables, emitiendo advertencias (o errores configurable) cuando no sea asi.
-3. **Backend `opencode` robusto en el orquestador**: el orquestador debe resolver el binario `opencode` de forma fiable, contemplando rutas conocidas y el PATH, con un mensaje de error diagnostico cuando no lo encuentre.
-4. **Seleccion explicita de proyecto activo**: la busqueda automatica debe detectar ambiguedad (mas de un proyecto candidato) y exigir `PRA_ACTIVE_PROJECT` o advertir claramente, evitando operar sobre el proyecto equivocado.
-
-## Contexto de los 4 inconvenientes (problema -> solucion propuesta)
-
-| # | Inconveniente | Problema raiz | Solucion propuesta |
-|---|---|---|---|
-| 1 | Lamina fuera del plan ignorada | `_consolidate_project` itera por `plan.sesiones[].laminas`, descartando archivos de `sesion[N]/` no declarados | Oracle de coherencia en consolidacion: detecta huerfanas/faltantes/duplicadas y reporta o aborta |
-| 2 | Plan sin registros/insumos | `save-plan` no valida que se entreguen Partes 2/3 (registros) ni insumos | Validacion de calidad minima del plan al guardar |
-| 3 | Backend opencode no resuelto | El subprocess no hereda el PATH de Git Bash con `C:\Users\HP\.opencode\bin` | Resolucion robusta del binario con rutas conocidas + diagnostico |
-| 4 | Proyecto activo ambiguo | Busqueda automatica toma el primero alfabetico sin verificar ambiguedad | Deteccion de ambiguedad y exigencia de `PRA_ACTIVE_PROJECT` |
+La solución propuesta a nivel de especificación es defensiva, con validaciones tempranas y diagnósticos estructurados, sin alterar la intención del sistema ni la forma en que el orquestador delega la creación de artefactos en `pra_helper.py`.
 
 ---
 
-## Historias de Usuario y Pruebas
+## 2. Objetivo del cambio
 
-### Historia de Usuario 1 - Coherencia plan vs. laminas (Prioridad: P1)
+El proyecto debe pasar de un flujo “funcional pero frágil” a un flujo “coherente y defendido”, en el que el sistema:
 
-Como desarrollador PRA, necesito que la consolidacion detecte y reporte cualquier lamina que no tenga correspondencia exacta entre el plan y los archivos escritos, para no entregar un manifest incompleto silenciosamente.
+1. detecta incoherencias entre el plan y las laminas escritas,
+2. revisa la calidad mínima del plan antes de aceptar la generación de sesiones,
+3. resuelve el backend `opencode` de manera determinista,
+4. exige explicitud cuando el proyecto activo es ambiguo.
 
-**Prueba Independiente**: Escribir en `sesion[N]/` una lamina que no esta declarada en el plan y ejecutar `consolidate`. Verificar que el consolidador reporta la lamina huerfana y (segun la puerta configurada) aborta sin generar un manifest incompleto.
-
-**Escenarios de Aceptacion**:
-
-1. Una lamina en `sesion[N]/` no declarada en el plan se reporta como "huerfana" en el reporte estructurado.
-2. Una lamina declarada en el plan pero no escrita en `sesion[N]/` se reporta como "faltante".
-3. Una lamina declarada dos veces con el mismo `id_kebab_case` en el plan se reporta como "duplicada".
-4. Si existen incoherencias bloqueantes, el manifest NO se genera incompleto y `ok` es `false`.
-5. Si no hay incoherencias, el manifest se genera completo y `ok` es `true`.
-
-### Historia de Usuario 2 - Validacion de calidad del plan (Prioridad: P1)
-
-Como creador de presentaciones, necesito que `save-plan` me advierta si el plan no incluye los registros CSS/JS iniciales o si alguna lamina carece de insumos, para corregirlo antes de construir las sesiones.
-
-**Prueba Independiente**: Guardar un plan que solo contiene la Parte 1 (sin partes 2/3, sin insumos) y verificar que `save-plan` emite advertencias estructuradas de calidad.
-
-**Escenarios de Aceptacion**:
-
-1. Si `class_registry.json` y `js_registry.json` quedarian vacios, se emite una advertencia visible.
-2. Si alguna lamina tiene `insumos` vacio, se emite una advertencia por cada lamina afectada.
-3. Por defecto la validacion es de advertencia (no bloquea); el plan se guarda igualmente.
-4. Un criterio de bloqueo configurable permite convertir estas advertencias en errores cuando se requiera.
-
-### Historia de Usuario 3 - Backend opencode robusto (Prioridad: P1)
-
-Como usuario del flujo desatendido, necesito que el backend `opencode` se resuelva de forma confiable, para poder ejecutar `pra_orchestrator.py run ... --backend opencode` sin que falle por no encontrar el binario.
-
-**Prueba Independiente**: Ejecutar el orquestador con `--backend opencode` y verificar que (a) resuelve el binario y procede, o (b) si no lo encuentra, emite un mensaje de diagnostico claro con las rutas intentadas.
-
-**Escenarios de Aceptacion**:
-
-1. El binario `opencode` se resuelve via PATH o via rutas conocidas (`~/.opencode/bin/opencode`, etc.).
-2. Si no se encuentra, el orquestador reporta `BACKEND_NO_DISPONIBLE` con las rutas intentadas y el PATH relevante.
-3. La resolucion no depende del shell desde el que se lanza el orquestador (Git Bash vs cmd).
-
-### Historia de Usuario 4 - Seleccion explicita de proyecto activo (Prioridad: P2)
-
-Como usuario con varios proyectos bajo la ruta base, necesito que el sistema detecte la ambiguedad y no opere sobre un proyecto incorrecto por defecto.
-
-**Prueba Independiente**: Tener al menos dos proyectos bajo la ruta base sin `PRA_ACTIVE_PROJECT` y ejecutar un comando que depende del proyecto activo. Verificar que el sistema advierte de la ambiguedad (o exige la variable) en lugar de elegir silenciosamente el primero alfabetico.
-
-**Escenarios de Aceptacion**:
-
-1. Con `PRA_ACTIVE_PROJECT` valido, se usa ese proyecto de forma determinista.
-2. Sin `PRA_ACTIVE_PROJECT` y con ambiguedad (varios proyectos), se emite una advertencia clara listando los candidatos.
-3. El comportamiento de "un solo proyecto" (sin ambiguedad) se mantiene sin cambios.
+El cambio se limita a captura de errores, validación y diagnósticos. No incluye rediseñar la lógica de generación ni cambiar el modelo de presentación.
 
 ---
 
-## Requisitos Funcionales
+## 3. Problemas y contexto del negocio
 
-### Coherencia en consolidacion
-- **FR-901**: El consolidador calcula el conjunto de laminas declaradas en el plan por sesion.
-- **FR-902**: El consolidador detecta laminas **huerfanas**: archivos `.blade.php` en `sesion[N]/` cuyo nombre no esta declarado en el plan de esa sesion.
-- **FR-903**: El consolidador detecta laminas **faltantes**: `id_kebab_case` declarado en el plan cuyo archivo `sesion[N]/<id>.blade.php` no existe.
-- **FR-904**: El consolidador detecta laminas **duplicadas**: el mismo `id_kebab_case` declarado mas de una vez en el plan (misma o distinta sesion).
-- **FR-905**: El consolidador agrega al reporte del JSON un bloque `coherencia` con listas `huerfanas`, `faltantes` y `duplicadas`, cada una con informacion diagnostica (sesion, id, sugerencia).
-- **FR-906**: Ante incoherencias bloqueantes (huerfanas/faltantes/duplicadas), el consolidador NO genera un manifest incompleto y devuelve `ok: false` con los errores de coherencia.
-- **FR-907**: Si no hay incoherencias, el consolidador genera el manifest completo y devuelve `ok: true`.
-- **FR-908**: El consolidador mantiene la validacion existente de CSS inline sobre las laminas que SÍ se consolidan.
+### 3.1 Incoherencia plan vs. laminas
 
-### Calidad del plan
-- **FR-909**: `save-plan` valida que `class_registry.json` y `js_registry.json` resultantes no esten vacios, y emite advertencia si lo estan.
-- **FR-910**: `save-plan` valida que cada lamina tenga `insumos` no vacios, y emite una advertencia por lamina afectada.
-- **FR-911**: La validacion de calidad es de advertencia por defecto (no bloquea el guardado); un criterio configurable permite elevarla a error.
+Cuando el consolidador se basaba únicamente en el plan maestro para construir el manifest, cualquier archivo blade generado físicamente en `sesion[N]/` pero no declarado en `presentation_plan.json` quedaba invisibilizado para el producto final. Esto provocaba entregables incompletos sin una advertencia clara.
 
-### Backend opencode
-- **FR-912**: El backend `opencode` del orquestador resuelve el binario via PATH y via rutas conocidas (`~/.opencode/bin/opencode[.exe]`, etc.).
-- **FR-913**: Si el binario no se encuentra, el orquestador reporta `BACKEND_NO_DISPONIBLE` con las rutas intentadas y el PATH relevante, sin traceback crudo.
+El sistema debe detectar tres tipos de incoherencias:
 
-### Proyecto activo
-- **FR-914**: La seleccion del proyecto activo detecta ambiguedad (varios proyectos bajo la ruta base) cuando no hay `PRA_ACTIVE_PROJECT`.
-- **FR-915**: Con ambiguedad y sin `PRA_ACTIVE_PROJECT`, se emite una advertencia clara listando los candidatos validos.
+- laminas huérfanas: existían en el filesystem pero no estaban declaradas,
+- laminas faltantes: estaban declaradas en el plan pero no materializadas,
+- laminas duplicadas: el mismo `id_kebab_case` aparecía más de una vez.
 
-## Criterios de Exito
+### 3.2 Calidad mínima del plan
 
-- **SC-901**: Una lamina fuera del plan ya no se omite silenciosamente; se reporta como huerfana.
-- **SC-902**: La consolidacion con incoherencias devuelve `ok: false` y no entrega un manifest incompleto.
-- **SC-903**: `save-plan` advierte de planes sin registros CSS/JS o con laminas sin insumos.
-- **SC-904**: `pra_orchestrator.py run ... --backend opencode` resuelve el binario o reporta un diagnostico claro.
-- **SC-905**: Con proyectos ambiguos y sin `PRA_ACTIVE_PROJECT`, se advierte en lugar de elegir silenciosamente.
-- **SC-906**: La suite completa permanece en verde y la cobertura de `pra_helper.py` y `pra_orchestrator.py` es >= 85%.
+Un plan incompleto puede llevar a una presentación inválida aunque la sesión se construya sin error. Para evitarlo, el sistema debe exigir que el plan contenga al menos un mínimo de información operativa: registros CSS/JS y `insumos` definidos para cada lamina.
 
-## Casos Extremos
+La validación debe ser de advertencia por defecto y configurable como error estrictamente en entornos controlados.
 
-- Lamina huerfana que comparte nombre con una declarada en otra sesion: se reporta segun su sesion concreta.
-- `insumos` nulo (no solo `[]`) en una lamina: se trata como vacio y se advierte.
-- Backend `opencode` presente en PATH pero no ejecutable: se captura el error de ejecucion y se reporta.
-- Ambiguedad con proyectos temporales (`backup/`, `themes/`) que no son proyectos reales: se filtran antes de contar.
-- Plan que declara una lamina pero ninguna sesion tiene archivos escritos: se reportan todas como faltantes.
-- Re-consolidacion idempotente: una segunda consolidacion sin cambios no debe reportar incoherencias nuevas.
+### 3.3 Dependencia externa del backend `opencode`
 
-## Fuera de Alcance
+El backend de orquestación no debe depender del shell que ejecutó el proceso. Debe resolver la ruta del binario con prioridad determinista y generar un diagnóstico útil cuando no exista.
 
-- Rediseñar laminas o estilos visuales.
-- Migrar retroactivamente proyectos ya consolidados.
-- Cambiar el algoritmo de generacion de contenido de las laminas.
-- Modificar la constitucion del proyecto.
-- Reescribir el backend `opencode` mas alla de la resolucion robusta del binario y el diagnostico.
-- Cambiar el contrato de `save-plan` como comando (el JSON sigue aceptando cualquiera de los dos juegos de nombres de campo normalizados).
+### 3.4 Ambigüedad del proyecto activo
+
+Cuando hay varios proyectos bajo la base de salida, el sistema debe evitar elegir uno al azar o por orden alfabético sin advertir. Debe exigir `PRA_ACTIVE_PROJECT` o mostrar una lista explícita de candidatos.
+
+---
+
+## 4. Historias de usuario
+
+### HU-001: coherencia entre plan y material real
+Como desarrollador PRA, quiero que el consolidador detecte laminas faltantes, huérfanas y duplicadas, para evitar entregar manifestos incompletos sin saberlo.
+
+Criterio de aceptación:
+- El sistema devuelve un bloque `coherencia` con los diagnósticos.
+- Si hay incoherencia bloqueante, la consolidación devuelve `ok: false`.
+- El manifest no se produce en un estado parcialmente válido.
+
+### HU-002: validación temprana del plan
+Como creador de presentaciones, quiero que `save-plan` advierta si faltan registros CSS/JS o si hay laminas sin `insumos`, para corregir el plan antes de continuar.
+
+Criterio de aceptación:
+- Las advertencias se exponen en el JSON de salida y en la salida estándar.
+- La operación continúa por defecto.
+- La variable de entorno `PRA_PLAN_ESTRICTO=1` convierte esas advertencias en error.
+
+### HU-003: backend `opencode` resuelto con diagnóstico
+Como operador del orquestador, quiero que `opencode` se resuelva de forma fiable o muestre un diagnóstico claro, para no depender del entorno del shell que lanzó la aplicación.
+
+Criterio de aceptación:
+- La resolución intenta PATH y rutas conocidas.
+- Si no existe, el error se reporta bajo el código `BACKEND_NO_DISPONIBLE` con rutas intentadas y PATH visible.
+
+### HU-004: proyecto activo explícito y seguro
+Como usuario con varios proyectos, quiero tener una regla explícita para elegir el proyecto activo, para evitar operar sobre el proyecto equivocado.
+
+Criterio de aceptación:
+- Si `PRA_ACTIVE_PROJECT` es válido, se usa siempre.
+- Si no está definido y hay más de un proyecto candidato, se emite una advertencia de ambigüedad.
+
+---
+
+## 5. Requisitos funcionales
+
+### RF-001: diagnóstico de incoherencia
+El sistema debe calcular, por cada sesión, la diferencia entre:
+- las laminas declaradas en `presentation_plan.json`, y
+- las laminas generadas físicamente en `sesion[N]/`.
+
+### RF-002: huérfanas
+El sistema debe identificar archivos `.blade.php` en `sesion[N]/` cuyo identificador no aparece en el plan de esa sesión.
+
+### RF-003: faltantes
+El sistema debe identificar identificadores declarados en el plan que no tienen archivo equivalente en `sesion[N]/`.
+
+### RF-004: duplicadas
+El sistema debe detectar duplicados de `id_kebab_case` dentro del mismo plan, incluso si están en distintas sesiones.
+
+### RF-005: JSON de coherencia
+El reporte JSON de consolidación debe incluir un bloque `coherencia` con listas `huerfanas`, `faltantes` y `duplicadas`.
+
+### RF-006: bloqueo por incoherencia
+Si existe cualquiera de las incoherencias bloqueantes, `consolidate` debe devolver `ok: false` y no entregar un manifest parcialmente válido.
+
+### RF-007: plan mínimo viable
+`save-plan` debe comprobar si el registro CSS/JS queda vacío o si alguna lamina carece de `insumos`.
+
+### RF-008: advertencia por defecto
+La validación del plan debe ser no bloqueante por defecto; solo se convierte en bloqueo cuando se activa `PRA_PLAN_ESTRICTO`.
+
+### RF-009: resolución del backend `opencode`
+El backend `opencode` debe intentar resolver el binario a través de PATH y rutas conocidas del sistema operativo.
+
+### RF-010: diagnóstico estructurado
+Cuando el binario no exista o no sea ejecutable, el orquestador debe informar `BACKEND_NO_DISPONIBLE` con rutas intentadas y el PATH relevante.
+
+### RF-011: proyecto activo con ambigüedad
+El resolver de proyecto debe detectar más de un candidato y avisar explícitamente antes de elegir un proyecto por defecto.
+
+### RF-012: no regresión del flujo normal
+El flujo sin anomalías debe continuar siendo el mismo en términos de operación, determinismo y salida esperada.
+
+---
+
+## 6. Reglas de calidad y seguridad del flujo
+
+- Todo diagnóstico debe emitirse en formato estructurado, no como excepción cruda.
+- La validación del plan debe ser positiva por defecto para no romper flujos ya existentes.
+- La consolidación debe ser una etapa de guardado final, no un paso que “adivina” lo que el sistema quiere.
+- El backend externo y la resolución del proyecto activo deben ser deterministas y reproducibles.
+
+---
+
+## 7. Criterios de éxito
+
+- CSE-001: una lamina fuera del plan ya no se omite silenciosamente.
+- CSE-002: el reporte de consolidación incluye el bloque `coherencia` con detalles accionables.
+- CSE-003: `consolidate` retorna `ok: false` y evita manifest incompleto al detectar incoherencias.
+- CSE-004: `save-plan` provoca advertencias visibles por registros vacíos o insumos vacíos.
+- CSE-005: `PRA_PLAN_ESTRICTO=1` convierte esas advertencias en error de ejecución.
+- CSE-006: el backend `opencode` resuelve o diagnostica sin depender del shell.
+- CSE-007: la selección del proyecto activo no toma decisiones silenciosas cuando hay ambigüedad.
+- CSE-008: la suite de pruebas permanece en verde y la cobertura de los módulos modificados no cae por debajo del mínimo requerido.
+
+---
+
+## 8. Fuera de alcance
+
+- No se modifica el contenido pedagógico de las presentaciones.
+- No se reescribe la lógica de generación de sesiones ni de prompts.
+- No se cambia el objetivo del directorio maestro ni el patrón de archivos de salida.
+- No se reemplaza el contrato de `save-plan`, solo se hace más robusto.
+- No se introduce nueva infraestructura de persistencia para orquestación.
+
+---
+
+## 9. Consideraciones de TDD
+
+El cumplimiento de esta especificación exige desarrollo guiado por pruebas:
+
+1. escribir pruebas que reproduzcan cada anomalía,
+2. confirmar el fallo en rojo,
+3. implementar la corrección mínima,
+4. ejecutar la suite completa de validación.
+
+La prueba es la fuerza de validación del comportamiento esperado y no puede sustituirse por inspección visual del código.

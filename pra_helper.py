@@ -286,6 +286,69 @@ def cmd_init(args):
 # Comando: --save-plan (T008)
 # ============================================================
 
+def _analizar_coherencia(plan, project_dir):
+    """Compara laminas declaradas en el plan frente a archivos reales bajo sesion[N]/."""
+    report = {"huerfanas": [], "faltantes": [], "duplicadas": []}
+    declaradas = {}
+    todos_ids = []
+    for sesion in plan.get("sesiones", []):
+        numero = sesion.get("numero")
+        ids = []
+        for lamina in sesion.get("laminas", []):
+            lid = lamina.get("id_kebab_case") or lamina.get("id")
+            if not lid:
+                continue
+            ids.append(lid)
+            todos_ids.append(lid)
+        declaradas[numero] = ids
+
+    contadores = {}
+    for lid in todos_ids:
+        contadores[lid] = contadores.get(lid, 0) + 1
+    for lid, veces in sorted(contadores.items()):
+        if veces > 1:
+            report["duplicadas"].append({"id": lid, "detalle": f"Se repite {veces} veces en el plan"})
+
+    for sesion in plan.get("sesiones", []):
+        numero = sesion.get("numero")
+        sesion_dir = project_dir / f"sesion{numero}"
+        reales = set()
+        if sesion_dir.exists():
+            reales = {blade.name[:-len(".blade.php")] for blade in sesion_dir.glob("*.blade.php")}
+
+        esperadas = set(declaradas.get(numero, []))
+        for lid in sorted(reales - esperadas):
+            report["huerfanas"].append({"sesion": numero, "id": lid, "sugerencia": "Quitar de la sesion o declarar en el plan"})
+
+        for lid in sorted(esperadas - reales):
+            report["faltantes"].append({"sesion": numero, "id": lid, "sugerencia": "Generar la lamina en sesionN/ o corregir el plan"})
+
+    return report
+
+
+def _validar_calidad_plan(plan, registros=None):
+    """Devuelve advertencias por un plan con registros vacios o laminas sin insumos."""
+    warnings = []
+    registry = registros or {}
+    clases = registry.get("clases") or []
+    comportamientos = registry.get("comportamientos") or []
+
+    if not clases:
+        warnings.append("Advertencia: class_registry vacio; faltan clases CSS requeridas iniciales.")
+    if not comportamientos:
+        warnings.append("Advertencia: js_registry vacio; faltan comportamientos JS requeridos iniciales.")
+
+    for sesion in plan.get("sesiones", []):
+        numero = sesion.get("numero")
+        for lamina in sesion.get("laminas", []):
+            lid = lamina.get("id_kebab_case") or lamina.get("id") or "sin-id"
+            insumos = lamina.get("insumos")
+            if insumos in (None, [], {}):
+                warnings.append(f"Advertencia: sesion {numero}, lamina '{lid}' sin insumos definidos.")
+
+    return warnings
+
+
 def cmd_save_plan(args):
     """Guarda el plan maestro e inicializa registros y estructura de carpetas."""
     try:
@@ -379,12 +442,20 @@ def cmd_save_plan(args):
     )
     created_files.append(str(project_dir / "scripts.blade.php"))
 
+    warnings = _validar_calidad_plan(
+        plan,
+        {"clases": class_registry["clases"], "comportamientos": js_registry["comportamientos"]},
+    )
     result = {
         "status": "exito",
         "proyecto": str(project_dir),
         "archivos_creados": created_files,
         "sesiones_inicializadas": len(plan["sesiones"]),
+        "advertencias": warnings,
     }
+    if os.environ.get("PRA_PLAN_ESTRICTO") == "1" and warnings:
+        print(json.dumps({"ok": False, "error": "Validacion estricta del plan", "advertencias": warnings}, ensure_ascii=False, indent=JSON_INDENT))
+        sys.exit(2)
     print(json.dumps(result, ensure_ascii=False, indent=JSON_INDENT))
     sys.exit(0)
 
@@ -771,6 +842,23 @@ def cmd_process_session(args):
 def _consolidate_project(project_dir):
     """Materializa la estructura final Laravel a partir del estado PRA."""
     plan = load_json(project_dir / "presentation_plan.json")
+    coherencia = _analizar_coherencia(plan, project_dir)
+    incoherencias = any(coherencia.get(key) for key in ("huerfanas", "faltantes", "duplicadas"))
+    if incoherencias:
+        return {
+            "ok": False,
+            "errores": [
+                "Incoherencia plan-vs-laminas detectada",
+                *[f"huerfanas={len(coherencia['huerfanas'])}", f"faltantes={len(coherencia['faltantes'])}", f"duplicadas={len(coherencia['duplicadas'])}"],
+            ],
+            "coherencia": coherencia,
+            "manifest": None,
+            "sesiones": [],
+            "laminas_materializadas": 0,
+            "includes_css": 0,
+            "includes_js": 0,
+        }
+
     final_sessions = []
     references = set()
     errors = []

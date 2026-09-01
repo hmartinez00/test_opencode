@@ -1,159 +1,163 @@
-# Plan de Implementacion: Robustez y Coherencia del Flujo PRA
+# Plan de implementación: robustez y coherencia del flujo PRA
 
-**Fecha**: 2026-08-31
+**Fecha**: 2026-09-01
+**Especificación**: [spec.md](./spec.md)
+**Estado**: previo a implementación
 
-**Especificacion**: [spec.md](./spec.md) | **Decisiones**: [research.md](./research.md) | **Contrato**: [contracts/cli-contract.md](./contracts/cli-contract.md)
+## 1. Método de trabajo
 
-## 1. Enfoque TDD (red-green-refactor)
+Este cambio se guiará por TDD estricto:
 
-Esta iteracion se implementa con desarrollo guiado por pruebas:
+1. escribir primero pruebas que reproduzcan cada problema observado,
+2. confirmar el fallo en rojo,
+3. implementar la corrección mínima,
+4. ejecutar la suite relevante,
+5. refactorizar solo si la validación sigue en verde.
 
-1. **Rojo**: Se escriben primero las pruebas que reproducen los cuatro inconvenientes detectados (deben fallar con el codigo actual: lamina huerfana omitida, plan sin registros guardado sin aviso, backend opencode no resuelto, ambiguedad silenciosa).
-2. **Verde**: Se implementan las funciones nuevas y se ajustan las existentes hasta que pasen.
-3. **Refactor**: Se limpia el codigo sin cambiar comportamiento; la suite completa debe seguir en verde (133 pruebas actuales) y la cobertura de ambos modulos debe ser >= 85%.
+La regla es que ninguna corrección entra a producción sin evidencia de prueba que falle antes y pase después.
 
-El detalle de cada prueba se documenta en [test_plan.md](./test_plan.md).
+---
 
-## 2. Arquitectura propuesta
+## 2. Objetivo arquitectónico
 
-```text
-pra_helper.py
-  ├── _consolidate_project:     + oracle de coherencia (D1, D2, D3)
-  ├── save_plan:                + validacion de calidad con umbral (D4)
-  └── find_proyecto_activo:     + deteccion de ambiguedad (D6)
+La implementación debe reforzar dos responsabilidades del sistema:
 
-pra_orchestrator.py
-  ├── OpenCodeBackend:          + resolucion robusta del binario (D5, D8)
-  └── main/run:                 + diagnostico BACKEND_NO_DISPONIBLE
-```
+- control de coherencia del proyecto generado,
+- validación de dependencias del entorno y del proyecto activo.
 
-## 3. Cambios en `pra_helper.py`
+Se debe preservar la separación actual:
+- `pra_helper.py` sigue siendo el único punto de escritura del proyecto,
+- `pra_orchestrator.py` sigue siendo la capa de coordinación y control de calidad,
+- la lógica de negocio y la lógica de ejecución no se mezclan.
 
-### 3.1 Oracle de coherencia en consolidacion
+---
 
-Nueva funcion `_analizar_coherencia(plan, project_dir) -> dict` que, por sesion:
+## 3. Cambios previstos por módulo
 
-1. Lee el conjunto de `id` declarados: `{ lamina.get("id_kebab_case") or lamina.get("id") for lamina in sesion.get("laminas", []) }`.
-2. Lee el conjunto de archivos reales: `{ p.stem for p in (project_dir / f"sesion{numero}").glob("*.blade.php") }` (si el dir existe).
-3. Deteccion de `huerfanas`: archivos en FS no declarados.
-4. Deteccion de `faltantes`: declarados no presentes en FS.
-5. Deteccion de `duplicadas`: ids repetidos en todo el plan (conjunto de sesiones).
+### 3.1 `pra_helper.py`
 
-```python
-def _analizar_coherencia(plan, project_dir):
-    """Retorna {'huerfanas': [], 'faltantes': [], 'duplicadas': []} con info diagnostica."""
-    ...
+#### A. Oracle de coherencia en consolidación
+Se añadirá una función de análisis que compare:
+- ids declarados en `presentation_plan.json`,
+- ids realmente presentes en `sesion[N]/`,
+- ids duplicados a nivel global.
 
-def _consolidate_project(project_dir):
-    ...
-    coherencia = _analizar_coherencia(plan, project_dir)
-    incoherente = any(coherencia[k] for k in ("huerfanas", "faltantes", "duplicadas"))
-    if incoherente:
-        return {"ok": False, "error": "Incoherencia plan-vs-laminas",
-                "coherencia": coherencia, ...}
-    # ... consolidacion normal solo si es coherente
-```
-
-Las entradas de cada lista llevan forma `{"sesion": N, "id": "...", "sugerencia": "..."}`.
-
-### 3.2 Validacion de calidad del plan en `save-plan`
-
-Nueva funcion `_validar_calidad_plan(plan) -> list[advertencias]`:
-
-1. Si `class_registry["clases"]` y `js_registry["comportamientos"]` quedarian vacios -> advertencia de registros vacios.
-2. Por cada lamina, si `insumos` es vacio o nulo -> advertencia "lamina sin insumos".
-
-En `cmd_save_plan`:
-- Emitir advertencias (stderr y en el JSON de salida, campo `advertencias`).
-- Si la variable de entorno `PRA_PLAN_ESTRICTO=1` y hay advertencias bloqueantes -> abortar con exit code y JSON de error.
-
-### 3.3 Deteccion de ambiguedad del proyecto activo
-
-En la funcion de seleccion de proyecto activo (`find_project_dir` o auxiliar):
-- Enumerar candidatos validos bajo la ruta base, excluyendo directorios no-proyecto (`backup`, `themes`, etc.).
-- Si `PRA_ACTIVE_PROJECT` esta definida: usarla (comportamiento actual de la iteracion 007).
-- Si no, y hay >1 candidato: emitir advertencia (stderr) listando los candidatos antes de aplicar el criterio por defecto. Mantener determinismo.
-
-## 4. Cambios en `pra_orchestrator.py`
-
-### 4.1 Resolucion robusta del binario `opencode`
-
-Nueva funcion (fuera de la clase o estatica) `_resolver_binario_opencode() -> str | None`:
-
-1. `shutil.which("opencode")` -> si existe, retornar.
-2. Rutas conocidas para el SO actual:
-   - `Path.home() / ".opencode" / "bin" / ("opencode.exe" si win32 else "opencode")`
-   - `Path.home() / "AppData" / "Roaming" / "npm" / "opencode.cmd"` (win32)
-   - `shutil.which("opencode")` con el PATH de `os.environ` reforzado con rutas `.opencode/bin`.
-3. Retornar la primera que exista y sea ejecutable, o `None`.
-
-El backend `OpenCodeBackend` usa esta resolucion; si es `None`, en lugar de lanzar FileNotFoundError, el orquestador reporta `BACKEND_NO_DISPONIBLE` con las rutas intentadas y un fragmento de PATH, devolviendo el codigo de salida de error interno.
+Se espera evaluar estos resultados en un estructura de retorno como:
 
 ```python
-def _resolver_binario_opencode():
-    from shutil import which
-    import os
-    candidatos = []
-    w = which("opencode")
-    if w:
-        return w
-    home = Path.home()
-    if os.name == "nt":
-        candidatos += [home / ".opencode" / "bin" / "opencode.exe",
-                       home / "AppData" / "Roaming" / "npm" / "opencode.cmd"]
-    else:
-        candidatos += [home / ".opencode" / "bin" / "opencode"]
-    for c in candidatos:
-        if c.exists() and os.access(c, os.X_OK):
-            return str(c)
-    return None
+{
+  "huerfanas": [{"sesion": 2, "id": "x", "sugerencia": "..."}],
+  "faltantes": [{"sesion": 1, "id": "y", "sugerencia": "..."}],
+  "duplicadas": [{"sesion": 1, "id": "z", "detalle": "..."}],
+}
 ```
 
-### 4.2 Diagnostico `BACKEND_NO_DISPONIBLE`
+La consolidación debe abortar cuando exista al menos una incoherencia bloqueante.
 
-En `run` (y `resume`), al validar el backend: si es `opencode` y `_resolver_binario_opencode()` es `None`, registrar en el estado y el log un error estructurado y salir con el codigo de error interno, sin traceback crudo.
+#### B. Validación mínima del plan
+Se añadirá una comprobación previa a la persistencia del plan que revise:
+- registros CSS/JS vacíos,
+- laminas con `insumos` vacíos o nulos,
+- condiciones opcionales de error cuando `PRA_PLAN_ESTRICTO=1`.
 
-## 5. Cambios en fixtures/conftest (no-regresion)
+La validación será no bloqueante por defecto y debe exponer advertencias accionables.
 
-- `tests/conftest.py`: los fixtures `sample_plan_json_str` y `sample_llm_response_s1` deben permanecer coherentes (las laminas del plan coinciden con las escritas en `sesion1/`). Si se introducen nuevas laminas en fixtures, deben declararse en el plan correspondiente.
+#### C. Resolución del proyecto activo
+Se añadirá una comprobación en la resolución del proyecto activo que:
+- filtre carpetas no proyectables,
+- detecte ambigüedad cuando haya varios candidatos,
+- informe de forma explícita la lista de proyectos que podrían corresponder.
 
-## 6. Validacion estructural post-consolidacion
+### 3.2 `pra_orchestrator.py`
 
-- `manifest.blade.php` referencia exactamente las laminas preservadas en `session[N]/`.
-- No hay laminas huerfanas ni faltantes en ninguna sesion consolidada.
-- `save-plan` advierte de planes incompletos.
-- El orquestador `--backend opencode` resuelve el binario o reporta diagnostico claro.
-- Con varios proyectos y sin `PRA_ACTIVE_PROJECT`, se advierte la ambiguedad.
+#### D. Resolución robusta del backend `opencode`
+Se encapsulará la resolución del binario `opencode` para:
+- intentar PATH,
+- intentar rutas conocidas del sistema,
+- devolver un estado de error estructurado si no existe.
 
-## 7. Pruebas TDD
+Se debe evitar que el backend falle con `FileNotFoundError` sin contexto útil.
 
-Ver [test_plan.md](./test_plan.md) para la lista completa. Resumen por ubicacion:
+#### E. Diagnóstico estructurado
+Cuando el backend no este disponible, el orquestador debe generar un error con un formato estable y legible, no un traceback crudo.
 
-- `tests/unit/`: `_analizar_coherencia` (huerfanas/faltantes/duplicadas), `_validar_calidad_plan`, `_resolver_binario_opencode`, ambiguedad de proyecto activo.
-- `tests/integration/`: `consolidate` aborta ante lamina huerfana; `save-plan` advierte sin bloquear y bloquea con `PRA_PLAN_ESTRICTO`.
-- `tests/constitutional/`: la consolidacion nunca entrega un manifest incompleto ante incoherencia.
+---
 
-## 8. Documentacion a actualizar despues de la implementacion
+## 4. Diseño de flujo propuesto
 
-- `README.md`: documentar el oracle de coherencia, la validacion de calidad del plan (`PRA_PLAN_ESTRICTO`) y la resolucion robusta del backend `opencode`.
-- `AGENTS.md`: actualizar el flujo y las notas de robustez (amarguedad de proyecto, backend).
-- `specs/001.../contracts/cli-contract.md` y `specs/003.../contracts/orchestrator-contract.md`: reflejar los nuevos campos de reporte y el diagnostico del backend.
-- `SESION_PRA_RESUMEN.md`: registrar la iteracion 009.
+El flujo deseado es el siguiente:
 
-## 9. Secuencia de implementacion
+1. `init` genera el prompt del plan maestro.
+2. `save-plan` valida calidad mínima del plan.
+3. `prompt-session` y `process-session` generan las laminas por sesión.
+4. `consolidate` valida coherencia plan-vs-laminas antes de materializar el manifest final.
+5. `pytest` ejecuta la validación de calidad del repositorio.
+6. `cleanup` solo elimina artefactos residuales si el lote protegido existe y es correcto.
 
-1. Escribir pruebas rojas (test_plan.md -> archivos en `tests/`).
-2. Implementar `_analizar_coherencia` + integracion en `_consolidate_project`.
-3. Implementar `_validar_calidad_plan` + integracion en `cmd_save_plan` + umbral `PRA_PLAN_ESTRICTO`.
-4. Implementar `_resolver_binario_opencode` + diagnostico en `pra_orchestrator.py`.
-5. Implementar deteccion de ambiguedad del proyecto activo en `pra_helper.py`.
-6. Refactorizar y ejecutar la suite + cobertura.
+La clave es que la coherencia no debe ser una comprobación tardía que se “adivina” en el manifest final. Debe ser un guardrail explícito antes de la materialización final.
 
-## 10. Criterios de finalizacion
+---
 
-- Suite completa en verde.
-- Cobertura >= 85% en `pra_helper.py` y `pra_orchestrator.py`.
-- Una lamina fuera del plan hace que `consolidate` devuelva `ok: false` con el bloque `coherencia`.
-- `save-plan` advierte de planes sin registros/insumos y bloquea solo con `PRA_PLAN_ESTRICTO=1`.
-- `--backend opencode` resuelve el binario o reporta `BACKEND_NO_DISPONIBLE` con diagnostico.
-- Con proyectos ambiguos y sin `PRA_ACTIVE_PROJECT`, se advierte de la ambiguedad.
+## 5. Decisiones de diseño
+
+### D1. Centralización de validación
+La validación de coherencia será una función única reutilizable para la consolidación y para diagnósticos en el futuro.
+
+### D2. No se mezcla validación con escritura
+La validación no debe escribir ni materializar archivos por sí misma; solo debe devolver metadatos estructurados para que el flujo los use.
+
+### D3. Diagnóstico antes que silenciamiento
+Si el sistema detecta anomalía, debe informar el problema con contexto, no ocultarlo.
+
+### D4. Por defecto conservador
+La validación de calidad mínima del plan será defensiva y no bloqueante a menos que se active el modo estricto.
+
+### D5. Resolución cerrada del backend externo
+Se evitará depender de variables de entorno del shell que no estén explícitas en la app.
+
+---
+
+## 6. Plan de implementación por fases
+
+### Fase 0: pruebas rojas
+Se escriben pruebas unitarias, de integración y constitucionales para cada anomalía detectada.
+
+### Fase 1: coherencia de consolidación
+Se implementa el analizador de redundancias y se integra en `_consolidate_project()`.
+
+### Fase 2: validación del plan
+Se añade la validación de registros vacíos e `insumos` vacíos.
+
+### Fase 3: backend `opencode`
+Se implementa la resolución del binario con diagnóstico estructurado.
+
+### Fase 4: proyecto activo
+Se añade detección de ambigüedad y advertencia de candidatos.
+
+### Fase 5: refactor final
+Se limpia la implementación eliminando duplicados de lógica y se confirma la suite en verde.
+
+---
+
+## 7. Criterios de salida
+
+La implementación se considera lista cuando:
+
+- todas las pruebas TDD rojas pasan,
+- las pruebas de integración del flujo permanecen estables,
+- la consolidación reporta incoherencias de forma explícita,
+- `save-plan` reporta advertencias de calidad mínima,
+- el orquestador no depende del shell para resolver `opencode`,
+- la detección de proyecto activo no opera en silencio cuando hay ambigüedad,
+- la cobertura mínima para módulos modificados sigue en rango aceptado.
+
+---
+
+## 8. Documentación a actualizar tras la implementación
+
+- [README.md](../../README.md)
+- [AGENTS.md](../../AGENTS.md)
+- [SESION_PRA_RESUMEN.md](../../SESION_PRA_RESUMEN.md)
+- contratos relevantes bajo [specs](../)
+
+No se toca la lógica de negocio ni el diseño del producto en esta fase; solo la robustez del flujo y las validaciones defensivas.

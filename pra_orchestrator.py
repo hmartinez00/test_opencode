@@ -26,6 +26,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -327,6 +328,7 @@ class OpenCodeBackend(LLMBackend):
     def __init__(self, timeout_s=300, binario="opencode"):
         self.timeout_s = timeout_s
         self.binario = binario
+        self._usar_fallback = binario == "opencode"
 
     def generar(self, prompt, clave=""):
         try:
@@ -336,7 +338,19 @@ class OpenCodeBackend(LLMBackend):
                 timeout=self.timeout_s,
             )
         except FileNotFoundError:
-            raise BackendError(f"CLI '{self.binario}' no encontrada en PATH")
+            fallback = _resolver_binario_opencode() if self._usar_fallback else None
+            if not fallback or fallback == self.binario:
+                raise BackendError(f"CLI '{self.binario}' no encontrada en PATH")
+            try:
+                proc = subprocess.run(
+                    [fallback, "run", prompt],
+                    capture_output=True,
+                    timeout=self.timeout_s,
+                )
+            except FileNotFoundError:
+                raise BackendError(f"CLI '{self.binario}' no encontrada en PATH")
+            except subprocess.TimeoutExpired:
+                raise BackendError(f"Timeout de {self.timeout_s}s agotado en backend opencode")
         except subprocess.TimeoutExpired:
             raise BackendError(f"Timeout de {self.timeout_s}s agotado en backend opencode")
         if proc.returncode != 0:
@@ -345,6 +359,28 @@ class OpenCodeBackend(LLMBackend):
                 f"opencode retorno codigo {proc.returncode}: {stderr_txt[:STDERR_MAX_CHARS]}"
             )
         return (proc.stdout or b"").decode(ENCODING, errors="replace")
+
+
+def _resolver_binario_opencode():
+    """Resuelve el binario opencode con PATH y rutas conocidas del sistema."""
+    ruta = shutil.which("opencode")
+    if ruta:
+        return ruta
+
+    base = Path.home()
+    candidatos = []
+    if os.name == "nt":
+        candidatos.extend([
+            base / ".opencode" / "bin" / "opencode.exe",
+            base / "AppData" / "Roaming" / "npm" / "opencode.cmd",
+        ])
+    else:
+        candidatos.append(base / ".opencode" / "bin" / "opencode")
+
+    for cand in candidatos:
+        if cand.exists() and os.access(cand, os.X_OK):
+            return str(cand)
+    return None
 
 
 def crear_backend(nombre, timeout_s=300):
@@ -410,14 +446,21 @@ def _preparar_process_session(argv):
     return ["process-session", numero, "--respuesta-file", ruta], ruta
 
 
-def _ejecutar_pytest():
+def _ejecutar_pytest(timeout_s=300):
     """Ejecuta la suite con cobertura desde la raiz del repositorio PRA."""
-    proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "--cov=pra_helper",
-         "--cov-report=term-missing", "-q"],
-        capture_output=True,
-        cwd=str(REPO_ROOT),
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pytest", "--cov=pra_helper",
+             "--cov-report=term-missing", "-q"],
+            capture_output=True,
+            cwd=str(REPO_ROOT),
+            timeout=timeout_s,
+        )
+    except subprocess.TimeoutExpired as error:
+        salida = (error.stdout or b"")
+        if isinstance(salida, bytes):
+            salida = salida.decode(ENCODING, errors="replace")
+        return 124, f"pytest excedio el timeout de {timeout_s}s\n{salida}"
     out = (proc.stdout or b"").decode(ENCODING, errors="replace")
     return proc.returncode, out
 

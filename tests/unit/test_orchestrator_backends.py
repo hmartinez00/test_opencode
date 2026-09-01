@@ -91,6 +91,19 @@ def test_opencode_backend_timeout(monkeypatch):
         po.OpenCodeBackend(timeout_s=5).generar("hola")
 
 
+def test_ejecutar_pytest_timeout_retorna_codigo_controlado(monkeypatch):
+    def fake_run(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs["timeout"], output=b"avance")
+
+    monkeypatch.setattr(po.subprocess, "run", fake_run)
+
+    codigo, salida = po._ejecutar_pytest(timeout_s=1)
+
+    assert codigo == 124
+    assert "timeout de 1s" in salida
+    assert "avance" in salida
+
+
 def test_llmbackend_es_abstracta():
     with pytest.raises(TypeError):
         po.LLMBackend()
