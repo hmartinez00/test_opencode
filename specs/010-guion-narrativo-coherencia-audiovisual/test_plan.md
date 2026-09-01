@@ -2,7 +2,7 @@
 
 **Fecha**: 2026-09-01  
 **Especificación**: [spec.md](./spec.md)  
-**Estado**: pruebas previstas, aún no implementadas
+**Estado**: pruebas implementadas y validadas; este documento conserva el diseño TDD
 
 Este documento define las pruebas que deberán escribirse primero. En esta etapa no se crean archivos bajo `tests/` ni se modifica código de producción.
 

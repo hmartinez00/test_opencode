@@ -3,7 +3,7 @@
 **Fecha**: 2026-09-01  
 **Especificación**: [spec.md](./spec.md)  
 **Plan**: [plan.md](./plan.md)  
-**Estado**: planificación previa a implementación
+**Estado**: implementación completada; lista conservada como trazabilidad de ejecución
 
 ## Fase 0: definición y pruebas rojas
 

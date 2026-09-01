@@ -1,9 +1,44 @@
-# Sesión PRA: Estado Final Verificado y Proyecto en Verde
+# Sesión PRA: Estado Actual y Proyecto en Verde
 
-> **Fecha de verificación:** 2026-08-31  
-> **Estado actual:** proyecto validado con suite completa en verde  
-> **Rama de trabajo:** `main`  
-> **Resultado verificado:** 119 pruebas aprobadas, cobertura final 88%/85%
+> **Actualización:** 2026-09-01
+
+## Estado actual verificado
+
+- Iteraciones implementadas: 001 a 010, con documentación Speckit para 009 y 010.
+- Suite actual: **151 pruebas aprobadas**.
+- Cobertura actual: `pra_helper.py` 89%, `pra_orchestrator.py` 85%, total 88%.
+- Último commit publicado: `dcb0ba8 feat: agregar guiones narrativos por lamina`.
+- El flujo automático implementado usa `mock` u `opencode`; OpenCode se ejecuta síncronamente.
+- No existe todavía backend `manual`/`copilot` ni selección de modelo mediante `--model`.
+
+### Iteración 009
+
+Añadió detección de láminas faltantes, huérfanas y duplicadas, validación de calidad del plan,
+resolución defensiva de OpenCode y timeout controlado para la suite interna.
+
+### Iteración 010
+
+Añadió el BLOQUE 6 de narración con marcas `[slide: N]`, archivos `assets/audio/guion_sesionN.txt`,
+respaldo en `backup/fuente/assets/audio/`, validación de referencias y modo estricto mediante
+`PRA_AUDIO_ESTRICTO=1`.
+
+### Incidente de ejecución de módulo 5
+
+El intento con OpenCode para generar una presentación desde `modulo5_archivos_excepciones.ipynb`
+quedó detenido durante `sesion1` después de recibir una respuesta vacía. Además, OpenCode devolvió
+un plan de cuatro sesiones aunque la solicitud pedía una. El proyecto parcial generado fue eliminado;
+la fuente y los proyectos anteriores se conservaron.
+
+La independencia entre Copilot y OpenCode está identificada como trabajo futuro. La solución prevista
+es añadir un backend `manual` con estados `waiting_input`, comandos `provide-plan`/`provide-session`
+y reanudación idempotente, sin cambiar los comandos actuales.
+
+---
+
+> **Registro histórico:** verificación del 2026-08-31
+> **Estado en ese momento:** proyecto validado con suite completa en verde
+> **Rama de trabajo:** `main`
+> **Resultado de esa línea base:** 119 pruebas aprobadas, cobertura final 88%/85%. El estado actual está documentado al inicio de este archivo.
 
 ---
 
@@ -15,13 +50,13 @@ Sistema **Presentation Automator (PRA v1.0)**: automatizar la generación modula
 
 ---
 
-## Estado final verificado (2026-08-24)
+## Línea base histórica verificada (2026-08-24)
 
 Se ejecutó la validación completa del repositorio con:
 
 `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`
 
-Resultado comprobado:
+Resultado comprobado en esa fecha:
 
 - 103 pruebas aprobadas
 - 0 fallos

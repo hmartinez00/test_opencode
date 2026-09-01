@@ -2,7 +2,7 @@
 
 **Fecha**: 2026-09-01  
 **Especificación**: [spec.md](./spec.md)  
-**Estado**: previo a implementación
+**Estado**: Implementado y validado con la suite actual
 
 ## 1. Estrategia
 

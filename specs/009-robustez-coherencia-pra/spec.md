@@ -1,7 +1,7 @@
 # Especificación funcional: Robustez y coherencia del flujo PRA
 
 **Rama funcional**: `009-robustez-coherencia-pra`
-**Estado**: Especificación previa a implementación
+**Estado**: Implementada parcialmente; núcleo validado en la suite actual
 **Fecha**: 2026-09-01
 
 ## 1. Resumen ejecutivo

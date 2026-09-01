@@ -24,14 +24,14 @@ C:\laragon\www\test_opencode\
 ├── README.md                       <-- Documentacion publica del repositorio
 ├── SESION_PRA_RESUMEN.md           <-- Documento de contexto de sesion (para reanudar en otra sesion)
 ├── pra_helper.py                   <-- Motor de automatizacion (punto unico de escritura de archivos)
-├── pra_orchestrator.py             <-- Orquestador automatico del flujo completo (iteracion 003)
+├── pra_orchestrator.py             <-- Orquestador automatico del flujo completo (iteraciones 003, 009 y 010)
 ├── mocks_llm/                      <-- Respuestas LLM deterministas del backend mock del orquestador
 │   ├── plan.txt
 │   ├── sesion1.txt
 │   └── sesion2.txt
 ├── pra_workflow_state.md           <-- Registro del estado y propuesta de arquitectura del proyecto
 ├── pytest.ini                      <-- Configuracion del marco de pruebas pytest
-├── tests/                          <-- Suite de pruebas automatizadas (iteraciones 002 y 003)
+├── tests/                          <-- Suite de pruebas automatizadas (iteraciones 002, 003, 009 y 010)
 │   ├── conftest.py                 <-- Fixtures compartidas (aislamiento tmp_path, mocks LLM)
 │   ├── unit/                       <-- Pruebas unitarias del motor y del orquestador
 │   ├── integration/                <-- Pruebas de integracion de comandos CLI
@@ -48,7 +48,9 @@ C:\laragon\www\test_opencode\
 │   │   │   └── cli-contract.md     <-- Especificacion detallada de comandos CLI
 │   │   └── checklists/
 │   │       └── requirements.md     <-- Checklist de requerimientos
-│   └── 003-orquestador-automatizado-pra/
+│   ├── 003-orquestador-automatizado-pra/
+│   ├── 009-robustez-coherencia-pra/
+│   └── 010-guion-narrativo-coherencia-audiovisual/
 │       ├── spec.md                 <-- Especificacion del orquestador automatico
 │       ├── research.md             <-- Decisiones tecnicas D1-D7
 │       ├── data-model.md           <-- Estado de orquestacion y log de auditoria
@@ -113,8 +115,8 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
     * Bash/Linux/Git Bash: `export PRA_ACTIVE_PROJECT="nombre_proyecto"`
 
 ### Garantia de Calidad (Suite de Pruebas):
-* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (133 pruebas aprobadas en la verificacion final del repositorio) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
-* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%. La verificacion final actual reporta 89% y 86% respectivamente.
+* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (151 pruebas verificadas el 2026-09-01) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing -q` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
+* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%. La verificacion actual reporta 89% y 85% respectivamente.
 * **Nuevas funcionalidades requieren nuevas pruebas:** Todo cambio o feature en el motor o el orquestador debe incluir pruebas unitarias, de integracion o constitucionales segun corresponda, siguiendo la especificacion de `specs/002-sistema-testing-pra/`.
 
 ---
@@ -167,9 +169,18 @@ Alternativa a las fases manuales anteriores: `pra_orchestrator.py` ejecuta el fl
 3. El orquestador aplica puertas constitucionales por sesion (exit code, regex anti CSS inline, laminas completas) y un bucle de reintentos con prompt de reflexion de error; exige suite verde + cobertura >= 85% antes de entrar a la fase `cleanup`.
 4. Sus unicos artefactos de escritura propios son `orchestration_state.json` y `orchestration_log.txt` (excluidos del directorio del proyecto). Contrato completo: `specs/003-orquestador-automatizado-pra/contracts/orchestrator-contract.md`.
 
+### Reglas de coherencia y narracion (iteraciones 009 y 010):
+1. La consolidacion bloquea laminas faltantes, huerfanas o duplicadas y reporta el bloque `coherencia`.
+2. `PRA_PLAN_ESTRICTO=1` convierte advertencias de calidad del plan en error.
+3. Las respuestas de sesion pueden incluir el **BLOQUE 6 — Guion de narracion**, con marcas `[slide: N]` basadas en cero.
+4. El helper escribe cada guion en `assets/audio/guion_sesionN.txt` y lo conserva en `backup/fuente/assets/audio/`.
+5. `PRA_AUDIO_ESTRICTO=1` exige el BLOQUE 6 y bloquea referencias invalidas, duplicadas, vacias o faltantes.
+6. La validacion semantica del guion genera advertencias; no debe inventar narracion ni modificar silenciosamente las laminas.
+7. El backend `opencode` y la fase interna de pytest tienen timeout defensivo. El backend manual/Copilot aun no esta implementado.
+
 ### Fase de Verificacion (obligatoria tras cualquier cambio en el motor):
 1. Ejecutar la suite completa: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
-2. Verificar que las 133 pruebas pasen y que la cobertura de `pra_helper.py` y `pra_orchestrator.py` sea >= 85%.
+2. Verificar que las 151 pruebas pasen y que la cobertura de `pra_helper.py` y `pra_orchestrator.py` sea >= 85%.
 3. Si se agregaron funcionalidades nuevas, incorporar las pruebas correspondientes antes de cerrar la tarea.
 
 ---
@@ -196,6 +207,8 @@ El script `pra_helper.py` normaliza automaticamente los campos del plan maestro 
 * La especificacion del orquestador automatico y su contrato CLI se encuentran en `specs/003-orquestador-automatizado-pra/`.
 * La especificacion del subdirectorio maestro de proyectos generados se encuentra en `specs/004-subdirectorio-maestro-proyectos-pra/`.
 * La especificacion de la limpieza de artefactos residuales (fase `cleanup` y comando `limpiar`) se encuentra en `specs/008-limpieza-artefactos-residuales/`.
+* La especificacion de robustez y coherencia se encuentra en `specs/009-robustez-coherencia-pra/`.
+* La especificacion de guion narrativo y coherencia audiovisual se encuentra en `specs/010-guion-narrativo-coherencia-audiovisual/`.
 
 ---
 

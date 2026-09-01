@@ -1,5 +1,16 @@
 # Presentation Automator (PRA) v1.0
 
+## Estado actual
+
+El flujo automatizado actual está implementado para los backends `mock` y `opencode`.
+La iteración 009 añade validaciones de coherencia y calidad; la iteración 010 añade
+guiones narrativos por sesión. La suite actual recoge **151 pruebas** y mantiene la
+cobertura mínima exigida para `pra_helper.py` y `pra_orchestrator.py`.
+
+El backend `opencode` se ejecuta de forma síncrona. La selección de modelo todavía no
+se expone como opción del orquestador y no existe aún un backend `manual` o `copilot`.
+La independencia entre agentes queda reservada para una iteración posterior.
+
 Sistema de automatización para la generación modular y progresiva de presentaciones interactivas basadas en **Reveal.js**, empaquetadas en plantillas **Blade** para integración en frameworks Laravel.
 
 ## Filosofía
@@ -8,8 +19,8 @@ El sistema opera bajo el principio de **Plan Maestro + Construcción Progresiva 
 
 1. **Plan Maestro**: Se analiza un documento fuente y se genera un plan estructurado en JSON que define la presentación completa.
 2. **Construcción por Sesiones**: Cada sesión se construye de forma secuencial, generando laminas Blade individuales con sus estilos y scripts asociados.
-3. **Empaquetado**: Las sesiones completadas se comprimen en un archivo ZIP listo para integración en Laravel.
-4. **Consolidacion**: Antes del empaquetado, los artefactos internos se convierten en una estructura final con `manifest.blade.php`, `global/`, `sessionN/` y `assets/`.
+3. **Consolidación**: Los artefactos internos se convierten en una estructura final con `manifest.blade.php`, `sessionN/` y `assets/`.
+4. **Limpieza**: El flujo automático respalda la fuente y elimina residuales; el ZIP queda como utilidad manual opcional.
 
 ## Estructura del Proyecto
 
@@ -63,6 +74,10 @@ test_opencode/
 │   │   └── orchestrator-contract.md  # CLI run/resume/status y códigos de salida
 │   └── checklists/
 │       └── requirements.md
+├── specs/009-robustez-coherencia-pra/        # Robustez y coherencia del flujo
+│   ├── spec.md / plan.md / tasks.md / test_plan.md
+├── specs/010-guion-narrativo-coherencia-audiovisual/ # Narración por lámina
+│   ├── spec.md / plan.md / tasks.md / test_plan.md
 ├── specs/004-subdirectorio-maestro-proyectos-pra/   # (dentro de specs/)
 │   ├── spec.md                     # Subdirectorio maestro output_projects/
 │   ├── research.md                 # Decisiones técnicas D401-D408
@@ -141,9 +156,9 @@ python -m pip install pytest pytest-cov
 
 El proyecto cuenta con una suite de pruebas automatizadas basada en **pytest**. El estado verificado actual es:
 
-- 102 pruebas aprobadas
-- Cobertura final: 88% en `pra_helper.py` y 87% en `pra_orchestrator.py`
-- Verificación ejecutada en 2026-08-24 con la línea base actual del repositorio
+- 151 pruebas recolectadas
+- Cobertura verificada: 89% en `pra_helper.py` y 85% en `pra_orchestrator.py`
+- Última verificación: 2026-09-01
 
 ```bash
 # Suite completa (invocar siempre via python -m pytest; el ejecutable pytest.exe
@@ -161,7 +176,7 @@ python -m pytest tests/constitutional/  # Pruebas de reglas constitucionales
 
 Las pruebas se ejecutan en directorios temporales aislados (`tmp_path`) y no modifican el workspace. Ver `specs/002-sistema-testing-pra/quickstart.md` para la guía completa.
 
-**Regla obligatoria**: Toda modificación a `pra_helper.py` o `pra_orchestrator.py` debe mantener la suite en verde antes de considerarse completada. La verificación final del proyecto quedó exitosa con 102 pruebas aprobadas y cobertura ≥ 85%.
+**Regla obligatoria**: Toda modificación a `pra_helper.py` o `pra_orchestrator.py` debe mantener la suite en verde antes de considerarse completada. La verificación actual queda en 151 pruebas y cobertura ≥ 85% por módulo.
 
 **Corrección documentada**: el bug del zip se resolvió normalizando la ruta interna del archivo a string y excluyendo el propio `outputs.zip` durante la compresión, sin afectar el flujo del orquestador ni la estructura del proyecto.
 
@@ -173,8 +188,8 @@ Las pruebas se ejecutan en directorios temporales aislados (`tmp_path`) y no mod
 # Corrida desatendida con backend mock determinista
 python pra_orchestrator.py run documento_fuente.md --backend mock
 
-# Con backend real (CLI de OpenCode) y reintentos configurables
-python pra_orchestrator.py run documento_fuente.md --backend opencode --max-retries 3
+# Con backend real (CLI de OpenCode), timeout y reintentos configurables
+python pra_orchestrator.py run documento_fuente.md --backend opencode --max-retries 3 --timeout-s 300
 
 # Reanudar una corrida interrumpida / inspeccionar estado
 python pra_orchestrator.py resume
@@ -188,6 +203,10 @@ Características clave:
 - **Limpieza de residuales (iteracion 008)**: la corrida omite la fase `zip` y termina con `cleanup`, dejando el directorio con solo el lote protegido + `backup/fuente/` (sin `outputs.zip`).
 - **Subdirectorio maestro**: todo proyecto generado se aloja en `C:\laragon\www\product_samples\slides` (configurable via variable de entorno `PRA_OUTPUT_DIR`); la raíz del repositorio permanece limpia.
 - **Consolidacion final**: genera `manifest.blade.php`, vistas bajo `global/` y `sessionN/`, y entrypoints de assets bajo `assets/` antes de empaquetar.
+- **Coherencia plan-vs-láminas (iteración 009)**: detecta láminas faltantes, huérfanas y duplicadas antes de consolidar; `PRA_PLAN_ESTRICTO=1` convierte advertencias de calidad del plan en error.
+- **Guion narrativo (iteración 010)**: `process-session` acepta el BLOQUE 6 con marcas `[slide: N]` y genera `assets/audio/guion_sesionN.txt`, preservándolo en `backup/fuente/`. `PRA_AUDIO_ESTRICTO=1` exige el bloque y sus referencias válidas.
+- **Timeout defensivo**: el backend OpenCode y la fase interna de pytest tienen límites para evitar esperas indefinidas.
+- **Limitación actual**: `run` no puede invocar Copilot ni otro agente conversacional; solo `mock` y `opencode` son backends implementados.
 - **Códigos de salida**: `0` éxito | `1` validación incumplida | `2` estado/secuencialidad | `3` backend no disponible | `4` uso incorrecto.
 
 ## Uso

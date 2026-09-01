@@ -2,7 +2,7 @@
 
 **Fecha**: 2026-09-01
 **Especificación**: [spec.md](./spec.md)
-**Estado**: previo a implementación
+**Estado**: Implementación del núcleo completada; detección de ambigüedad del proyecto queda pendiente
 
 ## 1. Método de trabajo
 
