@@ -50,7 +50,8 @@ C:\laragon\www\test_opencode\
 │   │       └── requirements.md     <-- Checklist de requerimientos
 │   ├── 003-orquestador-automatizado-pra/
 │   ├── 009-robustez-coherencia-pra/
-│   └── 010-guion-narrativo-coherencia-audiovisual/
+│   ├── 010-guion-narrativo-coherencia-audiovisual/
+│   └── 011-mejoras-p5-p11-correcciones-planes/
 │       ├── spec.md                 <-- Especificacion del orquestador automatico
 │       ├── research.md             <-- Decisiones tecnicas D1-D7
 │       ├── data-model.md           <-- Estado de orquestacion y log de auditoria
@@ -88,6 +89,8 @@ C:\laragon\www\test_opencode\
 
 > **Nota (iteracion 008)**: Durante la construccion interna el proyecto contiene artefactos residuales (`sesion[N]/`, `manifest_draft.blade.php`, `styles.blade.php`, `scripts.blade.php`, `styles_additions/`, `scripts_additions/`, `manifest_additions/`, `outputs.zip`). El comando `pra_helper.py limpiar` (o la fase `cleanup` del orquestador) los elimina al final, dejando solo el lote protegido + `backup/fuente/`.
 
+> **Convencion de prefijos (iteracion 011)**: El lote protegido usa `session[N]/` (ingles) como contrato del manifest `view="session{N}.*"`. Los artefactos internos y `backup/fuente/` conservan `sesion[N]/` (espanol) por compatibilidad con el data-model. No confundir ambos prefijos: `session1/` es la carpeta final visible; `sesion1/` es intermedia y se elimina en `limpiar`.
+
 ---
 
 ## 3. Mandatos y Restricciones Estrictas para los Agentes
@@ -115,8 +118,8 @@ Para asegurar la consistencia visual y la integracion en Laravel, todos los agen
     * Bash/Linux/Git Bash: `export PRA_ACTIVE_PROJECT="nombre_proyecto"`
 
 ### Garantia de Calidad (Suite de Pruebas):
-* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (151 pruebas verificadas el 2026-09-01) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing -q` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
-* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%. La verificacion actual reporta 89% y 85% respectivamente.
+* **Prohibido romper la suite:** Cualquier modificacion a `pra_helper.py` o `pra_orchestrator.py` DEBE mantener la suite `pytest` en verde (173 pruebas verificadas el 2026-09-02) antes de dar por terminada la tarea. Ejecutar: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing -q` (invocar siempre via `python -m pytest` y nunca el ejecutable `pytest.exe`, que dispara falsos positivos del antivirus).
+* **Cobertura minima:** El porcentaje de cobertura de `pra_helper.py` y de `pra_orchestrator.py` no debe descender del 85%. La verificacion actual reporta 90% y 85% respectivamente.
 * **Nuevas funcionalidades requieren nuevas pruebas:** Todo cambio o feature en el motor o el orquestador debe incluir pruebas unitarias, de integracion o constitucionales segun corresponda, siguiendo la especificacion de `specs/002-sistema-testing-pra/`.
 
 ---
@@ -136,6 +139,15 @@ Antes de ejecutar cualquier comando del flujo PRA, el agente DEBE verificar y co
 3. **Comportamiento si la ruta no existe**: El sistema solicitara interactivamente una ruta valida (max. 3 intentos) o abortara con exit code 1 en entornos no interactivos.
 4. **Importante**: `PRA_OUTPUT_DIR` define la ruta **base** (contenedora); el nombre del proyecto proviene del campo `carpeta_snake_case` en el JSON del plan. El proyecto se creara en `<PRA_OUTPUT_DIR>/<carpeta_snake_case>/`.
 5. **Proyecto activo (opcional)**: Si hay varios proyectos bajo la ruta base, se puede fijar el activo con `PRA_ACTIVE_PROJECT=<carpeta_snake_case>` (PowerShell: `$env:PRA_ACTIVE_PROJECT = "proyecto"`; Bash: `export PRA_ACTIVE_PROJECT="proyecto"`). Sin la variable, se usa la busqueda automatica (directorio actual si es proyecto, luego el primero alfabetico del base).
+
+### Practicas operativas (iteracion 011, Grupo B):
+
+1. **`PRA_ACTIVE_PROJECT` obligatorio**: Si hay mas de un proyecto en el directorio maestro, fijar SIEMPRE `PRA_ACTIVE_PROJECT=<carpeta_snake_case>` antes de `prompt-session`, `process-session`, `consolidate` y `limpiar`. Sin la variable, la busqueda automatica puede tomar el primer proyecto alfabetico (error habitual: pasar `intro_docker` como proyecto equivocado).
+2. **`PRA_OUTPUT_DIR` explicito antes de `save-plan`**: Verificar que la ruta base existe y fijar `PRA_OUTPUT_DIR` de forma explicita antes del primer `save-plan` cuando la ruta no sea la predeterminada, para evitar que el proyecto quede en una ruta temporal/incorrecta.
+3. **JSON del plan por archivo, sin acentos**: Escribir el plan en un `.json` temporal SIN acentos y pasarlo con `$(cat "archivo.json")` (Git Bash) en lugar de pegar el JSON en el argv. Preferir `save-plan --plan-file <ruta>` (iteracion 011/A6) cuando este disponible.
+4. **Respuestas de sesion por `--respuesta-file`**: Respuestas >= ~30.000 caracteres superan el limite de argv en Windows (`WinError 206`). Escribir la respuesta a un `.md` UTF-8 (acentos OK) y usar `process-session N --respuesta-file <ruta>`.
+5. **Limpiar acumuladores antes de reprocesar**: `styles.blade.php` y `scripts.blade.php` acumulan contenido de todas las sesiones procesadas. Antes de REPROCESAR una sesion, borrar ambos acumuladores (o el proyecto entero) para evitar CSS/JS duplicados en el manifest consolidado.
+6. **Localizar el `.ipynb` real**: Si el usuario indica una ruta fuente sin extension (p.ej. `modulo6_oop`), localizar el archivo real (`modulo6_oop.ipynb`) antes de `init`; el helper debe recibir la ruta final del archivo.
 
 ### Fase de Inicializacion (`@pra iniciar`):
 1. Leer el documento fuente proporcionado por el usuario.
@@ -180,7 +192,7 @@ Alternativa a las fases manuales anteriores: `pra_orchestrator.py` ejecuta el fl
 
 ### Fase de Verificacion (obligatoria tras cualquier cambio en el motor):
 1. Ejecutar la suite completa: `python -m pytest --cov=pra_helper --cov=pra_orchestrator --cov-report=term-missing`.
-2. Verificar que las 151 pruebas pasen y que la cobertura de `pra_helper.py` y `pra_orchestrator.py` sea >= 85%.
+2. Verificar que las 173 pruebas pasen y que la cobertura de `pra_helper.py` y `pra_orchestrator.py` sea >= 85%.
 3. Si se agregaron funcionalidades nuevas, incorporar las pruebas correspondientes antes de cerrar la tarea.
 
 ---
@@ -209,6 +221,7 @@ El script `pra_helper.py` normaliza automaticamente los campos del plan maestro 
 * La especificacion de la limpieza de artefactos residuales (fase `cleanup` y comando `limpiar`) se encuentra en `specs/008-limpieza-artefactos-residuales/`.
 * La especificacion de robustez y coherencia se encuentra en `specs/009-robustez-coherencia-pra/`.
 * La especificacion de guion narrativo y coherencia audiovisual se encuentra en `specs/010-guion-narrativo-coherencia-audiovisual/`.
+* La especificacion de las correcciones al motor (iteracion 011, mejoras P5-P11) se encuentra en `specs/011-mejoras-p5-p11-correcciones-planes/`.
 
 ---
 

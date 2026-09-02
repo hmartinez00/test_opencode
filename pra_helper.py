@@ -247,9 +247,40 @@ def normalize_plan(plan):
                 l["clases_css_requeridas"] = lamina["clases_css_requeridas"]
             if "comportamientos_js_requeridos" in lamina:
                 l["comportamientos_js_requeridos"] = lamina["comportamientos_js_requeridos"]
+            if "data_title" in lamina:
+                l["data_title"] = lamina["data_title"]
             s["laminas"].append(l)
+
+        ordenes_faltantes = any(l["orden"] == 0 for l in s["laminas"])
+        ordenes_presentes = all(l["orden"] != 0 for l in s["laminas"])
+        if ordenes_faltantes and not ordenes_presentes:
+            contador = 1
+            for l in s["laminas"]:
+                if l["orden"] == 0:
+                    l["orden"] = contador
+                contador += 1
+        elif ordenes_faltantes and ordenes_presentes:
+            pass
+        elif not ordenes_presentes:
+            contador = 1
+            for l in s["laminas"]:
+                l["orden"] = contador
+                contador += 1
+
         normalized["sesiones"].append(s)
     return normalized
+
+
+def _deduplicar_por_nombre(lista_entradas):
+    """Deduplica una lista de entradas por campo 'nombre', conservando la primera ocurrencia."""
+    vistos = set()
+    resultado = []
+    for entrada in lista_entradas:
+        nombre = entrada["nombre"] if isinstance(entrada, dict) else entrada
+        if nombre not in vistos:
+            vistos.add(nombre)
+            resultado.append(entrada)
+    return resultado
 
 
 def parse_guion_narrativo(guion):
@@ -416,13 +447,37 @@ def _validar_calidad_plan(plan, registros=None):
             if insumos in (None, [], {}):
                 warnings.append(f"Advertencia: sesion {numero}, lamina '{lid}' sin insumos definidos.")
 
+    todas_con_orden_original = True
+    for sesion in plan.get("sesiones", []):
+        for lamina in sesion.get("laminas", []):
+            if lamina.get("orden", 0) == 0:
+                todas_con_orden_original = False
+                break
+        if not todas_con_orden_original:
+            break
+    if not todas_con_orden_original:
+        warnings.append("Advertencia: el plan original no define 'orden' en todas las laminas; se asigno numeracion automatica.")
+
     return warnings
 
 
 def cmd_save_plan(args):
     """Guarda el plan maestro e inicializa registros y estructura de carpetas."""
+    json_text = None
+    if getattr(args, "plan_file", None):
+        ruta = Path(args.plan_file)
+        if not ruta.exists():
+            print(json.dumps({"error": "PLAN_FILE_NOT_FOUND", "mensaje": f"El archivo '{args.plan_file}' no existe."}))
+            sys.exit(1)
+        json_text = ruta.read_text(encoding=ENCODING)
+    elif args.json_plan:
+        json_text = args.json_plan
+    else:
+        print(json.dumps({"error": "Falta argumento: provea <json_plan> o --plan-file <ruta>"}))
+        sys.exit(2)
+
     try:
-        plan_raw = json.loads(args.json_plan)
+        plan_raw = json.loads(json_text)
     except json.JSONDecodeError as e:
         print(json.dumps({"error": f"Error de parseo JSON: {e}"}))
         sys.exit(1)
@@ -448,6 +503,7 @@ def cmd_save_plan(args):
     created_files.append(str(plan_path))
 
     class_registry = {"clases": []}
+    todas_clases = []
     for sesion in plan["sesiones"]:
         for lamina in sesion.get("laminas", []):
             for clase in lamina.get("clases_css_requeridas", []):
@@ -456,12 +512,14 @@ def cmd_save_plan(args):
                 elif isinstance(clase, dict):
                     clase.setdefault("implementada", False)
                     clase.setdefault("sesion_creacion", sesion["numero"])
-                class_registry["clases"].append(clase)
+                todas_clases.append(clase)
+    class_registry["clases"] = _deduplicar_por_nombre(todas_clases)
     class_registry_path = project_dir / "class_registry.json"
     save_json(class_registry_path, class_registry)
     created_files.append(str(class_registry_path))
 
     js_registry = {"comportamientos": []}
+    todos_comp = []
     for sesion in plan["sesiones"]:
         for lamina in sesion.get("laminas", []):
             for comp in lamina.get("comportamientos_js_requeridos", []):
@@ -470,7 +528,8 @@ def cmd_save_plan(args):
                 elif isinstance(comp, dict):
                     comp.setdefault("implementada", False)
                     comp.setdefault("sesion_creacion", sesion["numero"])
-                js_registry["comportamientos"].append(comp)
+                todos_comp.append(comp)
+    js_registry["comportamientos"] = _deduplicar_por_nombre(todos_comp)
     js_registry_path = project_dir / "js_registry.json"
     save_json(js_registry_path, js_registry)
     created_files.append(str(js_registry_path))
@@ -484,7 +543,7 @@ def cmd_save_plan(args):
         manifest_lines.append(f'<section data-title="{titulo}" data-session="sesion{num}">')
         for lamina in sesion.get("laminas", []):
             lid = lamina["id_kebab_case"]
-            data_title = lamina.get("data_title", lamina.get("titulo", lid))
+            data_title = lamina.get("data_title") or titulo_legible(lid)
             manifest_lines.append(f'    <x-slide view="sesion{num}.{lid}" data-title="{data_title}" />')
         manifest_lines.append("</section>\n")
     manifest_path = project_dir / "manifest_draft.blade.php"
@@ -689,7 +748,7 @@ def parse_llm_response(response_text):
         blocks["scripts_js"] = js_match.group(1).strip()
 
     audio_pattern = re.compile(
-        r"\*\*BLOQUE\s+6[^\n]*\n```(?:text|txt)?\s*\n?(.*?)```",
+        r"\*\*BLOQUE\s+6[^\n]*\n\s*```(?:text|txt)?\s*\n?(.*?)```",
         re.IGNORECASE | re.DOTALL,
     )
     audio_match = audio_pattern.search(response_text)
@@ -1326,7 +1385,8 @@ def main():
     init_parser.add_argument("doc", help="Ruta al documento fuente")
 
     save_parser = subparsers.add_parser("save-plan")
-    save_parser.add_argument("json_plan", help="JSON con el plan maestro")
+    save_parser.add_argument("json_plan", nargs="?", default=None, help="JSON con el plan maestro")
+    save_parser.add_argument("--plan-file", help="Ruta a archivo JSON con el plan (UTF-8)")
 
     prompt_parser = subparsers.add_parser("prompt-session")
     prompt_parser.add_argument("n", type=int, help="Numero de sesion")
